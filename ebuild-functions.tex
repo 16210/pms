@@ -1,0 +1,312 @@
+\chapter{ebuild 定义的函数}
+\label{ch:ebuild-functions}
+
+\section{阶段函数}
+
+在 ebuild 构建、安装和卸载的过程中，某些阶段的操作需要由 ebuild 以函数的形式定义，
+这种用于定义某一阶段操作的函数称为阶段函数。阶段函数可以在 ebuild 或 eclass 中定义，
+它们将会作为构建、安装或卸载过程的一部分由软件包管理器调用。
+
+在 ebuild 构建过程中调用的阶段函数有：
+\begin{compactitem}
+\item \texttt{pkg_setup}
+\item \texttt{src_unpack}
+\item \texttt{src_prepare}
+\item \texttt{src_configure}
+\item \texttt{src_compile}
+\item \texttt{src_test}
+\item \texttt{src_install}
+\end{compactitem}
+
+在 ebuild 安装过程中调用的阶段函数有：
+\begin{compactitem}
+\item \texttt{pkg_preinst}
+\item \texttt{pkg_postinst}
+\end{compactitem}
+
+在 ebuild 卸载过程中调用的阶段函数有：
+\begin{compactitem}
+\item \texttt{pkg_prerm}
+\item \texttt{pkg_postrm}
+\end{compactitem}
+
+除此之外，另有 4 个函数执行的时机不（一定）在构建、安装或卸载过程中：\texttt{pkg_pretend}、
+\texttt{pkg_config}、\texttt{pkg_info} 和 \texttt{pkg_nofetch}。在此规范中它们同样属于阶段函数。
+
+软件包管理器应当提供这些函数的默认实现，若非另有说明，这些默认实现必须是空操作。所有函数都可以
+假设它们对系统中正常用户有权限访问的库、二进制和配置文件有读权限，并且对环境变量 \texttt{T}、
+\texttt{TMPDIR} 和 \texttt{HOME}（详见~\ref{sec:ebuild-env-vars} 节）指定的临时目录有写权限。
+大多数函数只能假设它们对软件包构建的工作目录（\texttt{WORKDIR} 环境变量）
+额外具有写权限；例外情况会在具体函数的小节中说明。
+
+在下文中没有特别说明的阶段函数均参与 \ref{sec:ebuild-env-state} 节所述的环境保存。
+
+ebuild 既不能调用任何阶段函数也不能假设它们的存在。
+
+\subsection{初始工作目录}
+\label{sec:s-to-workdir-fallback}
+
+所有 \texttt{src_*} 阶段函数的初始工作目录是 \texttt{\$\{WORKDIR\}}。
+需要注意的是，\texttt{WORKDIR} 可以被修改。
+
+\texttt{pkg_*} 阶段函数的初始工作目录应被设为一个在函数开始时为空的专用目录，此目录可以是只读的，
+具体是什么路径由软件包管理器决定。ebuild 不得假设它是某个特定的路径。
+
+ebuild 可以假设所有阶段函数的初始工作目录都是只有特权用户和特权组才有写权限的可信路径。
+
+\subsection{pkg_pretend}
+
+\texttt{pkg_pretend} 函数可以用来在安装过程的早期执行合理性检查。比如说，如果一个 ebuild
+需要特定的内核配置项，它就可以在 \texttt{pkg_pretend} 中执行该检查，如果所需的内核配置项
+未找到，就调用 \texttt{eerror} 然后调用 \texttt{die} 输出合适的消息。
+
+\texttt{pkg_pretend} 可以在 ebuild 安装时调用，也可以在 ebuild 安装之前的某个时间调用。
+此函数不参与环境保存。既不保证 ebuild 的任何依赖在此阶段都能满足，
+也不保证系统的状态在下一个阶段执行前不会有实质上的变化。
+
+\texttt{pkg_pretend} 不得写文件系统。
+
+\subsection{pkg_setup}
+
+\texttt{pkg_setup} 函数在构建过程开始之前为所有接下来的函数设定 ebuild 环境，并进一步检查
+那些没有被软件包管理器检查到的先决条件，比如某些内核配置选项，是否都得到了满足。
+
+\subsection{src_unpack}
+
+\texttt{src_unpack} 函数用来解压缩软件包所有的源码。
+
+当 ebuild 中缺少 \texttt{src_unpack} 函数时，
+将会使用行为如代码清单~\ref{lst:src-unpack-1} 所示的默认实现。
+
+\begin{listing}[H]
+\caption{\texttt{src_unpack}} \label{lst:src-unpack-1}
+\begin{verbatim}
+src_unpack() {
+    if [[ -n ${A} ]]; then
+        unpack ${A}
+    fi
+    [ -d ${WORKDIR}/${P} ] && WORKDIR=${WORKDIR}/${P}
+}
+\end{verbatim}
+\end{listing}
+
+\subsection{src_prepare}
+
+\texttt{src_prepare} 函数可以用来做一些源码解包之后的准备工作。
+
+当 ebuild 中缺少 \texttt{src_prepare} 函数时，将会使用行为如代码清单
+\ref{lst:src-prepare-1} 所示的默认实现。
+
+\begin{listing}[H]
+\caption{\texttt{src_prepare}} \label{lst:src-prepare-1}
+\begin{verbatim}
+src_prepare() {
+    if [[ ${PATCHES@a} == *a* ]]; then
+        [[ -n ${PATCHES[@]} ]] && eapply -- "${PATCHES[@]}"
+    else
+        [[ -n ${PATCHES} ]] && eapply -- ${PATCHES}
+    fi
+    eapply_user
+}
+\end{verbatim}
+\end{listing}
+
+\subsection{src_configure}
+
+\texttt{src_configure} 函数用来配置软件包的构建环境。
+
+当 ebuild 中缺少 \texttt{src_configure} 函数时，
+将会使用行为如代码清单~\ref{lst:src-configure-1} 所示的默认实现。
+
+\begin{listing}[H]
+\caption{\texttt{src_configure}} \label{lst:src-configure-1}
+\begin{verbatim}
+src_configure() {
+    if [[ -x ${ECONF_SOURCE:-.}/configure ]]; then
+        econf
+    fi
+}
+\end{verbatim}
+\end{listing}
+
+\subsection{src_compile}
+
+\texttt{src_compile} 函数用来构建软件包。
+
+当 ebuild 中缺少 \texttt{src_compile} 函数时，
+将会使用行为如代码清单~\ref{lst:src-compile-1} 所示的默认实现。
+
+\begin{listing}[H]
+\caption{\texttt{src_compile}} \label{lst:src-compile-1}
+\begin{verbatim}
+src_compile() {
+    if [[ -f Makefile ]] || [[ -f GNUmakefile ]] || [[ -f makefile ]]; then
+        emake
+    fi
+}
+\end{verbatim}
+\end{listing}
+
+\subsection{src_test}
+
+\texttt{src_test} 函数在软件包刚构建出来但还没有安装的时候执行源码中提供的单元测试。
+
+如果启用了测试，当 ebuild 中缺少 \texttt{src_test} 函数时使用的默认实现，必须做到当且仅当
+Makefile 的 check 目标可用时执行 \texttt{emake check}，如果不可用，则当且仅当 Makefile 的
+test 目标可用时执行 \texttt{emake test}。在这两种情况下，
+如果 \texttt{emake} 返回的是非 0 值，必须中止构建。
+
+\texttt{src_test} 函数可以被 \texttt{RESTRICT} 禁用，详见~\ref{sec:restrict} 节。
+并且也可以被用户以某种特定于软件包管理器的机制禁用。
+
+\subsection{src_install}
+
+\texttt{src_install} 函数将软件包的内容安装到 \texttt{D} 指定的目录中。
+
+当 ebuild 中缺少 \texttt{src_install} 函数时，
+将会使用行为如代码清单~\ref{lst:src-install-1} 所示的默认实现。
+
+\begin{listing}[H]
+\caption{\texttt{src_install}} \label{lst:src-install-1}
+\begin{verbatim}
+src_install() {
+    if [[ -f Makefile ]] || [[ -f GNUmakefile ]] || [[ -f makefile ]]; then
+        emake DESTDIR="${D}" install
+    fi
+    einstalldocs
+}
+\end{verbatim}
+\end{listing}
+
+\subsection{pkg_preinst}
+
+\texttt{pkg_preinst} 函数执行那些需要在软件包合并到当前文件系统之前立即完成的特殊任务。
+它不得在环境变量 \texttt{ROOT} 和 \texttt{D} 指定的目录之外写入。
+
+\texttt{pkg_preinst} 的运行，必须对环境变量 \texttt{ROOT} 和 \texttt{D} 指定的目录下，
+所有的文件和目录具有完全访问权限。
+
+\subsection{pkg_postinst}
+
+\texttt{pkg_postinst} 函数执行那些需要在软件包合并到当前文件系统之后立即完成的特殊任务。
+它不得在环境变量 \texttt{ROOT} 指定的目录之外写入。
+
+和 \texttt{pkg_preinst} 类似，\texttt{pkg_postinst} 的运行，必须对环境变量 \texttt{ROOT}
+指定的目录下，所有的文件和目录具有完全访问权限。
+
+\subsection{pkg_prerm}
+
+\texttt{pkg_prerm} 函数执行那些需要在软件包从当前文件系统删除之前立即完成的特殊任务。
+它不得在环境变量 \texttt{ROOT} 指定的目录之外写入。
+
+\texttt{pkg_prerm} 的运行，必须对环境变量 \texttt{ROOT} 指定的目录下，
+所有的文件和目录具有完全访问权限。
+
+\subsection{pkg_postrm}
+
+\texttt{pkg_postrm} 函数执行那些需要在软件包从当前文件系统删除之后立即完成的特殊任务。
+它不得在环境变量 \texttt{ROOT} 指定的目录之外写入。
+
+\texttt{pkg_postrm} 的运行，必须对环境变量 \texttt{ROOT} 指定的目录下，
+所有的文件和目录具有完全访问权限。
+
+\subsection{pkg_config}
+
+\texttt{pkg_config} 函数执行那些在软件包安装完成之后，配置它所需的自定义步骤。
+它是唯一一个可以交互并提示用户输入的 ebuild 函数。
+
+\texttt{pkg_config} 的运行必须对 \texttt{ROOT} 中所有的文件和目录具有完全访问权限。
+
+\subsection{pkg_info}
+
+\texttt{pkg_info} 函数可以在显示软件包的信息时由软件包管理器调用。
+需要注意的是，在软件包未安装的情况下显示信息时软件包的依赖可能没有安装。
+
+\texttt{pkg_info} 不得写文件系统。
+
+\subsection{pkg_nofetch}
+
+\texttt{pkg_nofetch} 函数在那些下载受限的 ebuild 处于下载阶段，并且相关的源文件不可用的时候执行。
+它应该指导用户从所有相关的源文件各自的位置下载它们，并附上关于许可证的说明（如果适用的话）。
+
+\texttt{pkg_nofetch} 不得对文件系统的任何一处索要写入权限。
+
+\subsection{默认阶段函数}
+\label{sec:default-phase-funcs}
+
+在软件包管理器调用 \texttt{src_*} 阶段函数时，应定义一个以
+\texttt{default_<\hspace{0em}函数名称\hspace{0em}>} 命名，行为等同于默认实现的函数。
+这种默认阶段函数仅限 ebuild 在对应的阶段函数里调用。
+
+\section{调用顺序}
+
+非二进制包安装的调用顺序是：
+\begin{compactitem}
+\item \texttt{pkg_pretend}，在正常调用序列之外调用。
+\item \texttt{pkg_setup}
+\item \texttt{src_unpack}
+\item \texttt{src_prepare}
+\item \texttt{src_configure}
+\item \texttt{src_compile}
+\item \texttt{src_test}（\texttt{RESTRICT} 变量中有 \texttt{test} 标记或被用户禁用的除外）
+\item \texttt{src_install}
+\item \texttt{pkg_preinst}
+\item \texttt{pkg_postinst}
+\item \texttt{pkg_config}（如果 \texttt{PROPERTIES} 变量中没有 \texttt{config} 标记则不在正常调用序列中调用）
+\end{compactitem}
+
+软件包卸载的调用顺序是：
+
+\begin{compactitem}
+\item \texttt{pkg_prerm}
+\item \texttt{pkg_postrm}
+\end{compactitem}
+
+非二进制包升级，降级或重装的调用顺序是：
+
+\begin{compactitem}
+\item \texttt{pkg_pretend}，在正常调用序列之外调用。
+\item \texttt{pkg_setup}
+\item \texttt{src_unpack}
+\item \texttt{src_prepare}
+\item \texttt{src_configure}
+\item \texttt{src_compile}
+\item \texttt{src_test}（\texttt{RESTRICT} 变量中有 \texttt{test} 标记或被用户禁用的除外）
+\item \texttt{src_install}
+\item \texttt{pkg_preinst}
+\item 旧软件包的 \texttt{pkg_prerm}
+\item 旧软件包的 \texttt{pkg_postrm}
+\item \texttt{pkg_postinst}
+\item \texttt{pkg_config}（如果 \texttt{PROPERTIES} 变量中没有 \texttt{config} 标记则不在正常调用序列中调用）
+\end{compactitem}
+
+\texttt{pkg_info} 和 \texttt{pkg_nofetch} 函数不会在正常序列中调用。
+\texttt{pkg_pretend} 函数在正常序列之前的某个不确定的时间调用。
+\texttt{pkg_config} 函数可以在软件包安装完成后的任何时间多次调用，
+如果 \texttt{PROPERTIES} 变量中有 \texttt{config} 标记，那么 \texttt{pkg_config}
+会在 \texttt{pkg_postinst} 之后立即调用一次。
+
+对于二进制包，构建和安装是两个不连贯的过程，二进制包构建的调用顺序是：
+\begin{compactitem}
+\item \texttt{pkg_setup}
+\item \texttt{src_unpack}
+\item \texttt{src_prepare}
+\item \texttt{src_configure}
+\item \texttt{src_compile}
+\item \texttt{src_test}（\texttt{RESTRICT} 变量中有 \texttt{test} 标记或被用户禁用的除外）
+\item \texttt{src_install}
+\end{compactitem}
+
+相较于非二进制包，二进制包安装、升级、降级和重装的调用顺序中没有 \texttt{pkg_setup}
+和 \texttt{src_*}，其余阶段函数的相对顺序保持不变。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

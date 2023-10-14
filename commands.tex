@@ -1,0 +1,44 @@
+\chapter{ebuild 可用的命令}
+
+本章记录了 ebuild 可以使用的命令。如果没有特别说明，这些命令可以是别名、
+shell 函数或 ebuild 的 \texttt{PATH} 中的可执行文件。
+
+当 ebuild 用于信息查询而不是构建被拉入时（也就是说，当阶段函数
+不被调用时），不会执行外部命令。软件包管理器可以采取措施来强制保证这一点。
+
+\section{构建工具命令}
+
+任何不属于当前使用的系统轮廓构建工具分组的 ebuild，均可假设由系统轮廓的
+构建工具分组无条件提供的命令全部存在。不过 ebuild 必须考虑到使用不同
+系统轮廓安装的情况——可能某个所需的命令在某些系统轮廓的构建工具分组中提供，
+而在其他系统轮廓的构建工具分组中没有提供。如果 ebuild 需要某个构建工具分组
+不提供，或基于应用标志条件性提供的命令，则必须添加适当的依赖以确保它的存在。
+
+\subsection{始终可用的构建工具命令}
+\label{sec:guaranteed-system-commands}
+
+以下命令应当在 ebuild 环境中始终可用：
+\begin{compactitem}
+\item GNU bash 5.0 的所有内置命令。
+\item \texttt{sed} 命令，必须是 GNU sed 4.0 或更高版本。
+\item \texttt{patch} 命令，必须是 GNU patch 2.7 或更高版本。
+\item \texttt{find} 和 \texttt{xargs} 命令，必须是 GNU findutils 4.4 或更高版本。
+\end{compactitem}
+
+\section{由软件包依赖提供的命令}
+
+在多数情况下，软件包在构建过程中会需要核心系统没有提供的命令，这时就需要添加适当的依赖引入它们。
+具体类型的依赖所提供命令的可用性已在~\ref{sec:dependency-classes} 节阐述。
+
+\input{pkg-mgr-commands.tex}
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

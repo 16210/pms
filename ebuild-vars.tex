@@ -1,0 +1,172 @@
+\chapter{ebuild 定义的变量}
+\label{ch:ebuild-vars}
+
+\note{本章描述的是 ebuild 可选或必须定义的变量。关于软件包管理器传递给 ebuild
+的变量，请看~\ref{sec:ebuild-env-vars} 节。}
+
+如果这些变量中的任何一个设为了无效值，或者某个必须定义的变量没有定义，遇到这种情况软件包
+管理器的行为不做定义；理想情况下，一个 ebuild 的错误不应该阻碍对其他 ebuild 或软件包的操作。
+
+本章讨论的所有 ebuild 定义的变量都必须独立于系统、系统轮廓以及仓库相关的数据进行定义，
+并且不能随 ebuild 阶段而变化。
+
+\section{ebuild 必须定义的变量}
+\label{sec:mandatory-vars}
+
+所有 ebuild 至少要定义以下变量：
+\begin{description}
+\item[EAPI] ebuild 遵循的 EAPI，不能为空。必须有且仅有一次赋值，
+    除了注释和空白行之外，任何行都不能放在赋值语句之前。
+\item[DESCRIPTION] 一段给人看的对软件包的简短描述。可以由 eclass 定义。不能为空。
+\item[SLOT] 软件包的插槽和子插槽，可以由 eclass 定义，不能为空。主插槽和子插槽以一个 \texttt{/} 字符分隔，
+    二者必须符合 \ref{sec:slot-names} 节的插槽名称规范。其中 \texttt{/} 和子插槽是可选的。子插槽
+    用来表示把一个软件包升级到子插槽不同的新版本可能需要重新构建依赖它的软件包的情况，如果省略，
+    软件包就被视为具有和主插槽相等的隐式子插槽。
+\end{description}
+
+\section{ebuild 可选定义的变量}
+\label{sec:optional-vars}
+
+ebuild 可以定义以下变量：
+\begin{description}
+\item[HOMEPAGE] 软件包主页的一个或多个 URI。
+\item[SRC_URI] 软件包源码 URI 的列表。有效的协议有 \texttt{http://}、\texttt{https://}、\texttt{ftp://} 和
+    \texttt{mirror://}（mirror 协议的行为见~\ref{sec:thirdpartymirrors} 节）。那些下载受限的软件包
+    可以添加仅由一个文件名组成的 URL。可以使用 \ref{sec:dependency-spec} 节所述的语法，详细描述见
+    \ref{sec:src-uri-behaviour} 节。
+\item[LICENSE] 软件包的许可证。列出的每一项必须符合 \ref{sec:license-names} 节的许可证名称规范，
+    并且必须对应“\texttt{许可证/}”目录下的一个文件（详见~\ref{sec:licenses-dir} 节）。
+    可以使用 \ref{sec:dependency-spec} 节所述的语法。
+\item[KEYWORDS] 详见下文 \ref{sec:keywords} 节。
+\item[IUSE] ebuild 用到的非折叠应用标志。每个应用标志可以带一个加号前缀，表示 ebuild 的作者建议启用此标志，
+    不带加号前缀则表示建议不启用或没有建议。
+
+    除了 ebuild 之外，任何使用应用标志的 eclass 也必须设置 \texttt{IUSE}，
+    只列出自己用到的标志。软件包管理器负责合并这些值。
+\item[REQUIRED_USE] 应用标志的状态约束列表。详见下文 \ref{sec:required-use} 节。
+\item[PROPERTIES] 该软件包的任意数量个属性标记。可以使用 \ref{sec:dependency-spec} 节所述的语法，
+    标记的含义见~\ref{sec:properties} 节。
+\item[RESTRICT] 该软件包的任意数量个行为约束标记。可以使用 \ref{sec:dependency-spec} 节所述的语法，
+    标记的含义见~\ref{sec:restrict} 节。
+\item[BDEPEND] 见第\ref{ch:dependencies}章。
+\item[RDEPEND] 见第\ref{ch:dependencies}章。\texttt{RDEPEND} 的值如果没有设置或是在
+    eclass 中设置会产生特殊行为。相关细节见~\ref{sec:rdepend-depend} 节。
+\item[PDEPEND] 见第\ref{ch:dependencies}章。
+\item[IDEPEND] 见第\ref{ch:dependencies}章。
+\end{description}
+
+\subsection{SRC_URI}
+\label{sec:src-uri-behaviour}
+
+\texttt{SRC_URI} 中所有生效的 URI 下载得到的文件都必须
+保存或复制到 \texttt{\$\{DISTDIR\}} 目录（详见 \ref{sec:ebuild-env-vars} 节）中。另外，
+这些文件名还用于生成 \texttt{A} 变量。
+
+必须支持特殊的 \texttt{mirror://} 协议。协议的细节详见~\ref{sec:thirdpartymirrors} 节。
+
+\texttt{RESTRICT} 变量可以用来对下载施加限制——详见~\ref{sec:restrict} 节。
+下载受限的软件包可以用一个简单的文件名代替完整的 URI。
+
+\texttt{SRC_URI} 中还支持可选的箭头语法：URI 后面跟一个空格再跟一个 \texttt{->}
+再跟一个空格，然后是一个简单的文件名。如果使用了箭头，
+那么保存到 \texttt{\$\{DISTDIR\}} 中的文件名应改为箭头右侧的文件名。
+
+\subsection{KEYWORDS}
+\label{sec:keywords}
+
+\texttt{KEYWORDS} 是一张以空格分隔的平台列表，用来表示软件包在各个平台上的稳定性等级。每一项可以是以下几种形式之一：
+\begin{compactitem}
+\item \texttt{平台}：表示软件包版本和 ebuild 经过全面测试，已知在此平台上工作正常并且没有
+    任何严重的问题。针对此平台软件包称为\textit{稳定版}。
+\item \texttt{\textasciitilde\hspace{0em}平台}：表示软件包版本和 ebuild 可以工作并且没有任何
+    已知的严重 bug，但在认定软件包版本属于稳定版之前还需要进一步测试。针对此平台软件包
+    称为\textit{不稳定版}或\textit{测试版}。
+\item \texttt{-平台}：软件包版本在此平台上不能工作。
+\item \texttt{-*}：软件包在未列出的平台上不能工作，此项在 \texttt{KEYWORDS} 中最多只能出现一次。
+    如果此项没有出现，表示软件包在未列出的平台上不知道是否可以工作，或者只进行了不充分的测试。
+\end{compactitem}
+
+\texttt{KEYWORDS} 中出现的每个平台必须是已在 \texttt{平台列表}\ 文件（见
+\ref{sec:profiles-dir} 节）中列出的平台。
+
+\subsection{应用标志状态约束}
+\label{sec:required-use}
+
+\texttt{REQUIRED_USE} 是一个说明符（详见 \ref{sec:dependency-spec} 节）列表，用来约束应用标志状态的组合。
+对于其中待匹配的应用标志，如果不带感叹号前缀，则标志启用算作匹配；如果带有感叹号前缀，则标志不启用算作匹配。
+
+软件包应用标志的状态组合必须使得 \texttt{REQUIRED_USE} 中每一个说明符都能匹配，否则这个软件包
+就要当成已屏蔽对待，不得调用任何阶段函数。\texttt{REQUIRED_USE} 中出现 \texttt{IUSE_EFFECTIVE}
+中不存在的应用标志同样会导致软件包被视为屏蔽，但不应导致报错。
+
+\subsection{属性}
+\label{sec:properties}
+
+下列属性标记允许出现在 \texttt{PROPERTIES} 中：
+\begin{description}
+\item[interactive] 软件包可能需要通过 tty 和用户交互。
+\item[live] 软件包使用的是每次安装时都可能有所不同的“实时”源码。
+\item[test_network] 软件包管理器可以执行需要互联网连接的测试，即使
+    \texttt{RESTRICT} 变量中有 \texttt{test} 标记。
+\item[config] \texttt{pkg_config} 阶段函数需要在软件包安装完成时立即执行一次。
+\end{description}
+
+软件包管理器可以支持其他的属性标记，但 ebuild 不得依赖这种支持。
+
+\subsection{行为约束}
+\label{sec:restrict}
+
+下列行为约束标记允许出现在 \texttt{RESTRICT} 中：
+\begin{description}
+\item[fetch] 软件包的 \texttt{SRC_URI} 条目不会自动下载。如果没有下载好的文件可用，
+    就调用 \texttt{pkg_nofetch} 函数。
+\item[strip] 不对将要安装的文件执行剔除符号的操作。此行为可以被 \texttt{dostrip}
+    命令更改（见 \ref{sec:commands-controlling-manipulation} 节）。
+\item[userpriv] 软件包管理器在构建软件包时不会放弃 root 权限。
+\item[test] 不执行 \texttt{src_test} 阶段。
+\end{description}
+
+软件包管理器可以支持其他的行为约束标记，但 ebuild 不得依赖这种支持。
+
+\subsection{RDEPEND 值}
+\label{sec:rdepend-depend}
+
+如果在 ebuild 中没有设置 \texttt{RDEPEND}（不同于设置为空字符串），
+软件包管理器必须把它的值当作等于 \texttt{BDEPEND} 的值对待。
+
+当处理 eclass 时，只有 ebuild 本身设置的值才会考虑此行为；eclass 中设置的
+\texttt{RDEPEND} 不会改变 ebuild 部分隐式的 \texttt{RDEPEND=BDEPEND}，
+并且 eclass 中设置的 \texttt{BDEPEND} 值不会成为 \texttt{RDEPEND} 的一部分。
+
+\section{ebuild 自动定义的变量}
+
+下列变量必须由 \texttt{inherit} 命令（详见~\ref{sec:inherit} 节）自动定义：
+
+\begin{description}
+\item[ECLASS] 当前的 eclass，如果当前没有 eclass 则不设。此变量由 \texttt{inherit}
+    自动处理而不能手动修改。
+\item[INHERITED] 已继承的 eclass 名单。同样由 \texttt{inherit} 自动处理。
+\end{description}
+
+\note{\texttt{inherit} 不能有条件地使用，除非是在恒定条件下。}
+
+以下是软件包管理器为内部使用而定义的特殊变量，可以导出到 ebuild 环境中也可以不导出：
+
+\begin{description}
+\item[DEFINED_PHASES] 一个以空格分隔，在 ebuild 或 ebuild 继承的
+    eclass 中已定义的阶段函数名称以任意顺序组成的列表。
+    如果没有定义阶段函数，就设为一个连字符而不是空字符串。
+\end{description}
+
+\note{阶段函数不得基于任何可变的条件定义。}
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

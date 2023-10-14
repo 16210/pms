@@ -1,0 +1,629 @@
+\section{ebuild 专用命令}
+\label{sec:pkg-mgr-commands}
+
+以下命令由软件包管理器提供，并在 ebuild 环境中始终可用。若没有特别说明，
+这些命令可以是内部命令（shell 函数或别名）或 \texttt{PATH} 中的外部命令；
+如果未指定，则 ebuild 这二者都不得依赖。
+
+除非另有说明，这些命令的任何输出都以换行符结尾。
+
+\subsection{失败行为与相关命令}
+\label{sec:failure-behaviour}
+
+软件包管理器提供的某些命令具有可以被影响的失败行为，这些命令在未被影响
+的情况下执行失败会导致中止构建。此行为可以被以下命令影响：
+\begin{description}
+\item[nonfatal] 有一个或多个参数，将这些参数作为一条命令执行，
+    并将失败行为改成返回非零的退出状态。
+
+    此命令软件包管理器必须提供 shell 函数和外部命令两种实现。
+\end{description}
+
+\subsection{路径访问控制命令}
+这些命令用来修改当前阶段函数对文件系统的访问权限。每一个命令后边都需要跟一个目录作为参数。
+\begin{description}
+\item[addread] 添加一个目录到允许读取列表。
+\item[addwrite] 添加一个目录到允许写入列表。
+\item[addpredict] 添加一个目录到预报列表。对此列表中路径的任何写操作都会被拒绝，
+    但不会触发违规访问或中止构建过程。
+\item[adddeny] 添加一个目录到拒绝访问列表。
+\end{description}
+
+\subsection{软件包查询命令}
+这些命令用于查询软件包信息。它们支持 \texttt{-b} 和 \texttt{-r} 两个选项，
+这两个互斥的选项作为第一个参数将会使查询分别应用于 \texttt{BDEPEND} 和
+\texttt{RDEPEND} 所针对的路径。如果一个选项都不带，则视为 \texttt{-r}。
+
+\begin{description}
+\item[has_version] 需要一个软件包依赖说明符作为参数。如果安装有
+    和说明符相匹配的软件包则返回真，否则返回假。
+\item[best_version] 需要一个软件包依赖说明符作为参数。如果安装有相匹配的软件包，则
+    打印匹配到的最高版本的 \texttt{类别/名称-版本}；否则打印空字符串。它的退出状态不做定义。
+\end{description}
+
+\subsection{输出命令}
+这些命令用于为用户显示消息。除非另有说明，整个参数列表作为一条消息，遇到反斜杠转义字符就按照
+bash 的 \texttt{echo -e} 命令的方式进行解释，尤其是 \texttt{\textbackslash t} 转义成水平制表符，
+\texttt{\textbackslash n} 转义成换行符，以及 \texttt{\textbackslash\textbackslash} 转义成字面上的反斜杠。
+
+除非另有说明，消息可以输出到标准错误或其他适当的输出设备，但禁止输出到标准输出。
+
+\begin{description}
+\item[einfo] 显示一条信息性的消息。
+\item[einfon] 显示一条结尾不换行的信息性消息。
+\item[elog] 显示一条重要程度稍微高一点的信息性消息。软件包管理器可以选择在默认情况下
+    记录 \texttt{elog} 消息而不记录 \texttt{einfo} 消息。
+\item[ewarn] 显示一条警告消息。
+\item[eqawarn] 显示一条面向 ebuild 开发者的警告消息。软件包管理器可以
+    提供适当的机制来为普通用户跳过此类消息。
+\item[eerror] 显示一条错误消息。
+\item[ebegin] 显示一条信息性的消息。应在一个可能很漫长的过程开始时使用，并在结束时调用 \texttt{eend}。
+\item[eend] 表示在一条 \texttt{ebegin} 消息后开始的过程已经完成。需要一个必选的数字参数作为返回值，
+    以及所有后续的可选参数作为一条消息。如果第一个参数是 0，打印成功提示；
+    否则，打印消息和失败提示。返回它的第一个参数作为退出状态。
+\end{description}
+
+\subsection{报错命令}
+这些命令在遇到使得构建过程无法完成的错误时使用。
+\begin{description}
+\item[die] 如果在 \texttt{nonfatal} 命令（见~\ref{sec:failure-behaviour} 节）下调用并且
+    第一个参数是 \texttt{-n} 的话，就显示一条由后续参数提供的失败消息然后返回一个非零的退出状态。
+    其他情况下，忽略 \texttt{-n}（如果它是第一个参数的话）并显示一条由参数提供的失败消息，然后中止构建过程。
+
+    \texttt{die} 命令应确保从一个继承子 shell 环境中调用可以正常工作。
+\item[assert] 检查 shell 的管道状态变量的值，如果有任何一个元素是非 0 值（代表失败），
+    就调用 \texttt{die}，并将自己的所有参数传给它。
+\end{description}
+
+\subsection{补丁命令}
+这些命令用来在 \texttt{src_prepare} 阶段给软件包的源码打补丁。
+
+\begin{description}
+\item[eapply] 带有任意数量个 GNU patch 选项，后面是一个或多个文件或目录。
+    根据算法~\ref{alg:eapply} 处理选项并打补丁。打补丁（算法中的第 19 和 22 行）
+    失败会产生可以被影响的失败行为。
+
+\begin{algorithm}[t]
+\caption{\texttt{eapply} 逻辑} \label{alg:eapply}
+\begin{algorithmic}[1]
+\IF{有参数等于 \texttt{"-{}-"}}
+    \STATE 收集第一个 \texttt{"-{}-"} 之前的所有参数放进 \texttt{options} 数组
+    \STATE 收集第一个 \texttt{"-{}-"} 之后的所有参数放进 \texttt{files} 数组
+\ELSIF{有某个参数以连字符开头但是它前面的那个参数不以连字符开头}
+    \STATE 中止构建过程并报错
+\ELSE
+    \STATE 收集所有以连字符开头的参数放进 \texttt{options} 数组
+    \STATE 收集所有剩下的参数放进 \texttt{files} 数组
+\ENDIF
+\IF{\texttt{files} 数组为空}
+    \STATE 中止构建过程并报错
+\ENDIF
+\FORALL{\texttt{files} 数组中的元素 \texttt{x}}
+    \IF{\texttt{\$x} 是一个目录}
+        \IF{\NOT 有文件和 \texttt{\$x/*.diff} 或 \texttt{\$x/*.patch} 相匹配}
+            \STATE 中止构建过程并报错
+        \ENDIF
+        \FORALL{和 \texttt{\$x/*.diff} 或 \texttt{\$x/*.patch} 相匹配的文件 \texttt{f}，按照 POSIX 语言环境的顺序}
+            \STATE 执行 \texttt{patch -p1 -f -g0 -{}-no-backup-if-mismatch "\$\{options[@]\}" < "\$f"}
+        \ENDFOR
+    \ELSE
+        \STATE 执行 \texttt{patch -p1 -f -g0 -{}-no-backup-if-mismatch "\$\{options[@]\}" < "\$x"}
+    \ENDIF
+\ENDFOR
+\RETURN shell 真值（0）
+\end{algorithmic}
+\end{algorithm}
+
+\item[eapply_user] 没有参数。支持它的软件包管理器应把
+    用户提供的补丁打到当前工作目录下的代码中。确切的行为已经超出了此规范的范围，
+    是由实现定义的。不支持它的软件包管理器应实现一个无操作的命令。如果补丁成功打上或没有提供补丁，
+    返回 shell 真值（0），否则产生可以被影响的失败行为。\texttt{eapply_user} 必须在
+    \texttt{src_prepare} 阶段中调用一次。对于之后的任何调用，该命令将不做任何操作并返回 0。
+\end{description}
+
+\subsection{构建命令}
+这些命令用来在 \texttt{src_configure}，\texttt{src_compile}，\texttt{src_test}
+和 \texttt{src_install} 阶段运行软件包的构建命令。
+
+\begin{description}
+\item[econf] 调用软件包的 \texttt{./configure} 脚本。此命令须协同 GNU Autoconf 生成的脚本
+    才能工作。\texttt{econf} 所有附带的参数都会追加到下面 configure 脚本默认选项的后面
+    直接传给 \texttt{./configure}。\texttt{econf} 执行的是当前工作目录中的 configure 脚本，
+    除非设置了 \texttt{ECONF_SOURCE} 环境变量，在这种情况下此变量的值将被视为 configure 脚本的所在目录。
+
+    \texttt{econf} 应向 configure 脚本传递下列选项：
+    \begin{itemize}
+    \item \texttt{-{}-prefix} 必须默认是 \texttt{\$\{EPREFIX\}/usr}，除非调用 \texttt{econf} 的时候将它覆盖。
+    \item \texttt{-{}-mandir} 必须是 \texttt{\$\{EPREFIX\}/usr/share/man}
+    \item \texttt{-{}-infodir} 必须是 \texttt{\$\{EPREFIX\}/usr/share/info}
+    \item \texttt{-{}-datadir} 必须是 \texttt{\$\{EPREFIX\}/usr/share}
+    \item \texttt{-{}-datarootdir} 必须是 \texttt{\$\{EPREFIX\}/usr/share}。该选项仅在
+        \texttt{configure -{}-help} 的输出中含有 \texttt{-{}-datarootdir} 字符串的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-sysconfdir} 必须是 \texttt{\$\{EPREFIX\}/etc}
+    \item \texttt{-{}-localstatedir} 必须是 \texttt{\$\{EPREFIX\}/var/lib}
+    \item \texttt{-{}-docdir} 必须是 \texttt{\$\{EPREFIX\}/usr/share/doc/\$\{PF\}}。该选项仅在
+        \texttt{configure -{}-help} 的输出中含有 \texttt{-{}-docdir} 字符串的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-htmldir} 必须是 \texttt{\$\{EPREFIX\}/usr/share/doc/\$\{PF\}/html}。该选项仅在
+        \texttt{configure -{}-help} 的输出中含有 \texttt{-{}-htmldir} 字符串的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-libdir} 须根据算法~\ref{alg:econf-libdir} 设置。
+
+\begin{algorithm}
+\caption{\texttt{econf -{}-libdir} 逻辑} \label{alg:econf-libdir}
+\begin{algorithmic}[1]
+\STATE 令 prefix=\$\{EPREFIX\}/usr
+\IF{主调函数指定了 -{}-prefix=\$p}
+    \STATE 令 prefix=\$p
+\ENDIF
+\STATE 令 libdir=\hspace{0em}空值
+\IF{设置了环境变量 ABI}
+    \STATE 令 libvar=LIBDIR_\$ABI
+    \IF{已设置了名称等于 libvar 的值的环境变量}
+        \STATE 令 libdir=\hspace{0em}名称等于 libvar 的值的变量的值
+    \ENDIF
+\ENDIF
+\IF{libdir 非空}
+    \STATE 将 -{}-libdir=\$prefix/\$libdir 传递给 configure
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+    \item \texttt{-{}-build} 必须是 \texttt{CBUILD} 环境变量的值。该选项
+        仅在 \texttt{CBUILD} 非空的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-host} 必须是 \texttt{CHOST} 环境变量的值。
+    \item \texttt{-{}-target} 必须是 \texttt{CTARGET} 环境变量的值。该选项
+        仅在 \texttt{CTARGET} 非空的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-disable-dependency-tracking} 该选项仅在 \texttt{configure -{}-help}
+        的输出中含有 \\ \texttt{-{}-disable-dependency-tracking} 字符串的情况下才会传给 configure 脚本。
+    \item \texttt{-{}-disable-silent-rules} 该选项仅在 \texttt{configure -{}-help} 的输出中
+        含有 \\ \texttt{-{}-disable-silent-rules} 字符串的情况下才会传给 configure 脚本。
+    \end{itemize}
+
+    \texttt{econf} 必须内部实现——也就是说，必须是一个 shell 函数而不能是一个外部脚本。
+
+    \texttt{econf} 具有可以被影响的失败行为。
+
+\item[emake] 调用 \texttt{\$MAKE} 程序，如果 \texttt{MAKE} 变量未设置则调用 GNU make。
+    传给 \texttt{emake} 的任何参数都会直接传给 make 命令。\texttt{emake} 必须是一个
+    外部程序而不能是一个函数或别名——它必须能够被诸如 \texttt{xargs} 之类的程序调用。
+    此命令具有可以被影响的失败行为。
+\end{description}
+
+\subsection{安装命令}
+这些命令是在软件包 Makefile 的 install 目标无法使用或不能安装所有需要安装的文件的情况下，
+用来把文件安装到暂存区的。除非另有说明，所有创建或修改的文件名都相对于带有安装前缀的暂存目录
+\texttt{ED}。已经存在的目标文件会被覆盖。这些命令必须是外部程序而不能是 shell 函数或别名——也就是说，
+它们必须能够被 \texttt{xargs} 调用。不带文件名参数调用这些命令中的任何一个都会产生错误。
+
+在本节和 \ref{sec:commands-affecting-install-destinations} 节中出现的 \texttt{DESTTREE}
+是一个概念性的变量，具体是什么形态由实现定义。它的默认值是 \texttt{usr}。
+
+如果没有特别说明，这些命令全都具有可以被影响的失败行为。
+
+\begin{description}
+\item[dobin] 将给定的一个或多个文件安装到 \texttt{\$\{DESTTREE\}/bin} 下。修改文件的权限为
+    \texttt{0755} 并将文件的所有者设为超级用户或与之等效的用户。
+
+\item[doconfd] 将给定的一个或多个配置文件安装到 \texttt{etc/conf.d/} 下，并将文件的权限设为 \texttt{0644}。
+
+\item[dodir] 创建给定的一个或多个目录，默认情况下将目录权限设为 \texttt{0755}，或根据
+    最近调用的 \texttt{diropts} 设定的 \texttt{install} 命令选项进行设置。
+    给定的目录无论是相对路径还是绝对路径都会被视为相对于 \texttt{ED} 目录。
+
+\item[dodoc] 将给定的一个或多个文件安装到 \texttt{usr/share/doc/\$\{PF\}/}
+    的一个子目录下，并将文件权限设为 \texttt{0644}。具体是哪个子目录由最近调用的 \texttt{docinto} 设定。
+    如果尚未调用过 \texttt{docinto}，那就安装到 \texttt{usr/share/doc/\$\{PF\}/} 目录下。如果第一个参数是
+    \texttt{-r}，随后的任何是目录的参数都会被递归安装到适当的位置；其他任何情况下指定目录都会产生错误。
+    如果安装路径中有目录不存在，就使用 \texttt{install -d} 不加其他选项创建它。
+
+\item[doenvd] 将给定的一个或多个环境文件安装到 \texttt{etc/env.d/} 下，并将文件的权限设为 \texttt{0644}。
+
+\item[doexe] 将给定的一个或多个文件安装到最近调用的 \texttt{exeinto} 所指定的目录下。
+    对于尚未调用过 \texttt{exeinto} 的情况，命令的行为不做定义。默认情况下将被安装文件
+    的权限设为 \texttt{0755}，或根据最近调用的 \texttt{exeopts} 设定的 \texttt{install} 命令选项进行设置。
+
+\item[doheader] 将给定的一个或多个头文件安装到 \texttt{usr/include/} 下，并将文件的权限设为 \texttt{0644}。
+    如果第一个参数是 \texttt{-r}，则递归地进入每一个给定的目录进行操作。
+
+\item[doinfo] 将给定的一个或多个 GNU Info 文件安装到 \texttt{usr/share/info} 目录下，并将文件的权限
+    设为 \texttt{0644}。
+
+\item[doinitd] 将给定的一个或多个初始化脚本文件安装到 \texttt{etc/init.d} 下，并将文件的权限设为 \texttt{0755}。
+
+\item[dolib.a] 对于每个参数，将它安装到 \texttt{\$\{DESTTREE\}} 下合适的库子目录中，具体是哪个子目录由算法
+    \ref{alg:ebuild-libdir} 决定。文件以权限 \texttt{0644} 进行安装。符号链接保持链接目标不变安装成符号链接。
+
+\begin{algorithm}
+\caption{库目录的确定} \label{alg:ebuild-libdir}
+\begin{algorithmic}[1]
+\IF{CONF_LIBDIR_OVERRIDE 已在环境中设置}
+    \RETURN \$CONF_LIBDIR_OVERRIDE
+\ENDIF
+\IF{CONF_LIBDIR 已在环境中设置}
+    \STATE 令 LIBDIR_default=\$CONF_LIBDIR
+\ELSE
+    \STATE 令 LIBDIR_default=lib
+\ENDIF
+\IF{ABI 已在环境中设置}
+    \STATE 令 abi=\$ABI
+\ELSIF{DEFAULT_ABI 已在环境中设置}
+    \STATE 令 abi=\$DEFAULT_ABI
+\ELSE
+    \STATE 令 abi=default
+\ENDIF
+\IF{LIBDIR_\$abi 的值非空}
+    \RETURN LIBDIR_\$abi 的值
+\ELSE
+    \RETURN LIBDIR_default 的值
+\ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\item[dolib.so] 除了每个文件以权限 \texttt{0755} 进行安装以外和 \texttt{dolib.a} 一样。
+
+\item[doman] 将给定的一个或多个手册页安装到 \texttt{usr/share/man} 下合适的子目录中
+    并将文件权限设为 \texttt{0644}，具体是哪个子目录取决于文件的显式章节后缀（例如
+    \texttt{foo.1} 会被安装为 \texttt{usr/share/man/man1/foo.1}）。
+
+    \texttt{doman} 支持根据文件名检测语言，文件名形如 \texttt{foo.}\textit{lang}\texttt{.1}
+    的手册页会被安装为 \\ \texttt{usr/share/man/}\textit{lang}\texttt{/man1/foo.1}，
+    其中 \textit{lang} 指的是语言代码，格式为一对小写 ASCII 字母，后边可以跟一个下划线加一对
+    大写 ASCII 字母。
+
+    如果加了 \texttt{-i18n=}\textit{lang} 选项，手册页应被安装到 \texttt{usr/share/man/}\textit{lang} 下
+    合适的子目录中（例如 \texttt{foo.pl.1} 会被安装为 \texttt{usr/share/man/}\textit{lang}\texttt{/man1/foo.pl.1}）。
+    如果 \textit{lang} 是空字符串则跳过 \textit{lang} 这一级子目录。\texttt{-i18n} 选项优先于文件名中的语言代码。
+
+\item[domo] 将给定的一个或多个 \texttt{.mo} 文件安装到 \texttt{usr/share/locale} 下
+    合适的子目录中并将文件权限设为 \texttt{0644}，该子目录根据文件名称去掉 \texttt{.*} 后缀再加上
+    \texttt{/LC_MESSAGES} 得到的相对路径创建而来。安装后的文件以软件包名称加上 \texttt{.mo} 命名。
+
+\item[dosbin] 类似于 \texttt{dobin}，只不过安装目录是 \texttt{\$\{DESTTREE\}/sbin}。
+
+\item[dosym] 以第二个参数为名称创建一个指向第一个参数的符号链接。如果容纳
+    新链接的目录不存在就先创建。
+
+    \texttt{dosym} 支持创建相对链接，当添加 \texttt{-r} 选项调用时，第一个参数（链接目标）
+    会从绝对路径转换为相对于第二个参数（链接名）的相对路径。转换算法必须返回一个和代码清单
+    \ref{lst:dosym-r} 中的函数相同的结果，其中的 \texttt{realpath} 和 \texttt{dirname} 出自
+    GNU coreutils 8.32 版本。添加 \texttt{-r} 选项的同时将一个相对路径作为第一个参数
+    （目标）会产生一个错误。
+
+    需要说明的是，在路径转换完成后或不加 \texttt{-r} 选项时，链接名无论是相对路径还是绝对路径
+    都会被视为相对于 \texttt{ED} 目录，而链接目标始终不会。
+
+\begin{listing}[h]
+\caption{\texttt{dosym -r} 的相对路径转换} \label{lst:dosym-r}
+\begin{verbatim}
+dosym_relative_path() {
+    local link=$(realpath -m -s "/${2#/}")
+    local linkdir=$(dirname "${link}")
+    realpath -m -s --relative-to="${linkdir}" "$1"
+}
+\end{verbatim}
+\end{listing}
+
+\item[fowners] 作用类似于 \texttt{chown}，但是将路径视为相对于 \texttt{ED} 目录。
+
+\item[fperms] 作用类似于 \texttt{chmod}，但是将路径视为相对于 \texttt{ED} 目录。
+
+\item[newbin] 类似于 \texttt{dobin}，不过只有两个参数。第一个是待安装的文件；
+    第二个是安装后的新文件名。若第一个参数是 \texttt{-}（连字符）则从标准输入读取。
+    在这种情况下，如果标准输入是个终端将会产生一个错误。
+
+\item[newconfd] 类似于 \texttt{doconfd}，不过只有两个和 \texttt{newbin} 一样的参数。
+
+\item[newdoc] 类似于 \texttt{dodoc}，同上。
+
+\item[newenvd] 类似于 \texttt{doenvd}，同上。
+
+\item[newexe] 类似于 \texttt{doexe}，同上。
+
+\item[newheader] 类似于 \texttt{doheader}，同上。
+
+\item[newinitd] 类似于 \texttt{doinitd}，同上。
+
+\item[newlib.a] 类似于 \texttt{dolib.a}，同上。
+
+\item[newlib.so] 类似于 \texttt{dolib.so}，同上。
+
+\item[newman] 类似于 \texttt{doman}，同上。
+
+\item[newsbin] 类似于 \texttt{dosbin}，同上。
+
+\end{description}
+
+\subsection{安装目录与选项的设定命令}
+\label{sec:commands-affecting-install-destinations}
+下列命令用来设定上文安装命令用到的各种安装目录以及选项。由于需要设定一些供其他命令读取的变量，
+这些命令必须是 shell 函数或别名。
+
+\begin{description}
+
+\item[into] 有且仅有一个参数，为后续调用上文中的命令用参数给 \texttt{DESTTREE} 赋值。如果该目录尚不存在，
+    则使用 \texttt{install -d}，不加其他选项在 \texttt{\$\{ED\}} 下创建它。此命令具有可以被影响的失败行为。
+
+\item[exeinto] 类似于 \texttt{into}，为 \texttt{doexe} 和 \texttt{newexe} 设定安装路径。
+
+\item[docinto] 类似于 \texttt{into}，为 \texttt{dodoc} 等命令设定安装子目录。
+
+\item[diropts] 有一个或多个参数，用这些参数设定 \texttt{dodir} 等命令传递给
+    \texttt{install} 命令的选项。不带参数调用的行为不做定义。
+
+\item[exeopts] 类似于 \texttt{diropts}，设定 \texttt{doexe} 等命令传递的选项。
+
+\end{description}
+
+\subsection{暂存区文件操作的控制命令}
+\label{sec:commands-controlling-manipulation}
+这些命令用来控制软件包管理器可能对暂存目录 \texttt{ED} 中的文件实施的可选操作，
+比如文件压缩或针对目标文件的符号剔除。
+
+对于下面提到的每项操作，软件包管理器都应维护一张包含列表和一张排除列表，
+以此来控制可能或不能对哪些文件和目录实施操作。后面会分别针对每项操作详述这两张列表的初始内容。
+
+这些操作中的任何一个都要在 \texttt{src_install} 完成后，后续的阶段函数执行前或二进制包打包前进行。
+对于包含列表中的每一项，在它开头添加变量 \texttt{ED} 的值，然后：
+
+\begin{compactitem}
+\item 如果是一个目录，就如同它的每一个直接子文件和直接子目录都在包含列表里一样执行。
+\item 如果是一个文件，并且它不在排除列表中，则可以对它实施操作。
+\item 如果该项不存在，则忽略。
+\end{compactitem}
+
+对于排除列表中的每一项，在它开头添加变量 \texttt{ED} 的值，然后：
+
+\begin{compactitem}
+\item 如果是一个目录，就如同它的每一个直接子文件和直接子目录都在排除列表里一样执行。
+\item 如果是一个文件，不能对它实施操作。
+\item 如果该项不存在，则忽略。
+\end{compactitem}
+
+软件包管理器应采取适当的措施来确保它对暂存区中的文件实施的每项操作都切合实际，
+即使某一项在包含列表中多次出现或者某一项是一个符号链接。
+
+软件包管理器可以选择性地压缩 \texttt{ED} 目录下的部分文件。软件包管理器应确保它的压缩机制不会把
+一个已经用相同格式压缩过的文件再次压缩。对于文件压缩，两张列表的初始内容如下：
+
+\begin{compactitem}
+\item 包含列表里有 \texttt{/usr/share/doc}、\texttt{/usr/share/info} 和 \texttt{/usr/share/man}。
+\item 排除列表里有 \texttt{/usr/share/doc/\$\{PF\}/html}。
+\end{compactitem}
+
+软件包管理器可以对 \texttt{ED} 目录下的部分文件实施符号剔除。对于符号剔除，两张列表的初始内容如下：
+
+\begin{compactitem}
+\item 如果~\ref{sec:restrict} 节所述的 \texttt{RESTRICT} 变量启用了 \texttt{strip}
+    标记，包含列表为空；否则包含列表里有 \texttt{/}（根目录）。
+\item 排除列表是空的。
+\end{compactitem}
+
+下列命令可以在 \texttt{src_install} 中使用以修改这两张列表，在其他阶段函数中调用会产生一个错误。
+这些命令必须内部实现为 shell 函数。
+
+\begin{description}
+\item[docompress] 如果第一个参数是 \texttt{-x}，则将随后的每个参数添加到文件压缩的排除列表中。
+    否则，将每个参数添加到文件压缩的包含列表中。
+
+\item[dostrip] 如果第一个参数是 \texttt{-x}，则将随后的每个参数添加到符号剔除的排除列表中。
+    否则，将每个参数添加到符号剔除的包含列表中。
+\end{description}
+
+\subsection{应用标志查询函数}
+这些函数提供了基于应用标志是否设置的一系列行为。ebuild 在全局区域调用这些函数中的任何一个都会产生错误。
+
+除非另有说明，否则以一个不在 \texttt{IUSE_EFFECTIVE} 里的标志为参数调用这些函数中的任何一个都会产生一个错误。
+
+\begin{description}
+\item[use] 如果第一个参数（一个应用标志）已启用则返回 shell 真值（0），
+    否则返回假。如果应用标志带有 \texttt{!} 前缀，则禁用返回真，启用返回假。此命令保证是静默的。
+\item[usev] 类似于 \texttt{use}，只不过若条件满足会同时打印出标志的名称。
+    另外此命令具有可选的第二个参数，如果加了第二个参数且条件满足，那么打印的就是第二个参数。
+\item[use_with] 有一个参数，两个参数，三个参数三种格式。第一个参数
+    是一个应用标志，第二个参数是一个 \texttt{configure} 选项名称（\texttt{\$\{opt\}}）\hspace{0em}，若未给出则
+    默认等于第一个参数，而第三个参数是一个取值字符串（\texttt{\$\{value\}}）\hspace{0em}。若应用标志已设置，如果
+    给出了第三个参数则输出 \texttt{-{}-with-\$\{opt\}=\$\{value\}}，没有给出则输出 \texttt{-{}-with-\$\{opt\}}。
+    若应用标志未设置，则输出 \texttt{-{}-without-\$\{opt\}}。如果应用标志带有~\texttt{!} 前缀则条件取反；
+    此行为仅在两个参数和三个参数的格式中有效。
+\item[use_enable] 和 \texttt{use_with()} 作用相同，只不过用 \texttt{-{}-enable-} 和
+    \texttt{-{}-disable-} 替换输出中的 \texttt{-{}-with-} 和 \texttt{-{}-without-}。
+\item[usex] 有 1 到 5 个参数，第一个参数是一个应用标志，
+    后面的参数（\texttt{\$\{arg2\}} 到 \texttt{\$\{arg5\}}）都是取值字符串。如果
+    没有给出，\texttt{\$\{arg2\}} 和 \texttt{\$\{arg3\}} 默认分别是 \texttt{yes} 和 \texttt{no}；
+    \texttt{\$\{arg4\}} 和 \texttt{\$\{arg5\}} 默认是空字符串。若应用标志已设置，
+    则输出 \texttt{\$\{arg2\}\$\{arg4\}}，否则输出 \texttt{\$\{arg3\}\$\{arg5\}}。
+    如果应用标志带有~\texttt{!} 前缀则条件取反。
+\item[in_iuse] 如果第一个参数（一个应用标志）
+    在 \texttt{IUSE_EFFECTIVE} 里则返回 shell 真值（0），否则返回假。
+\end{description}
+
+\subsection{文本查询函数}
+下列函数从以空格分隔的列表中查找特定的值。
+\begin{description}
+\item[has] 如果第一个参数（一个单词）在后续的参数组成的列表中存在则
+    返回 shell 真值（0），否则返回假。此命令保证是静默的。
+\end{description}
+
+\subsection{版本操作与比较命令}
+这些命令提供了处理版本字符串的功能。它们全都必须内部实现为 shell 函数，也就是说，必须可以在全局
+区域中调用。
+
+为了定义版本操作命令，这里引入一种将任意版本字符串（不一定符合~\ref{sec:version-spec} 节的规范）
+拆分成一系列版本组成部分和版本分隔符的方法。
+
+每个版本组成部分要么只包含数字（\texttt{[0-9]+}）\hspace{0em}，要么只包含大小写 ASCII 字母（\texttt{[A-Za-z]+}）。
+版本分隔符要么是任意其他字符（\texttt{[\textasciicircum A-Za-z0-9]+}）组成的字符串，
+要么出现在一系列数字和一系列字母之间的过渡之处，反之亦然。在后一种情况中，版本分隔符是空字符串。
+
+版本字符串从左到右进行处理，相继为每个版本组成部分分配从 1 开始的连续索引。
+跟在版本组成部分后面的分隔符被分配和该版本组成部分一样的索引。
+如果第一个版本组成部分的前面是非空的版本分隔符，则为该分隔符分配索引 0。
+
+如果版本组成部分非空则推定存在。版本组成部分之间的版本分隔符始终推定存在，即使它们为空。
+第一个版本组成部分前面的和最后一个版本组成部分后面的版本分隔符只有在非空时才推定存在。
+
+当命令支持范围时，范围可以用一个无符号整数，后边可选地跟一个连字符（\texttt{-}），
+连字符后边再可选地跟一个无符号整数的格式来选定。
+
+一个整数指定一个版本组成部分或分隔符的索引。一个后边带有连字符的整数选定从该索引开始的所有
+版本组成部分或分隔符。两个由连字符分隔的整数选定从第一个整数指定的索引开始，到第二个整数
+指定的索引结束的范围，包含边界。
+
+\begin{description}
+\item[ver_cut] 第一个参数是一个范围，第二个参数是一个可选的版本字符串。打印版本字符串
+    中的一个子字符串，子字符串从范围开头的版本组成部分开始，到范围末尾的版本组成部分结束。
+    如果版本字符串没有给出，则视为 \texttt{\$\{PV\}}。
+
+    如果范围跨越到已有的版本组成部分之外，缺少的版本组成部分和分隔符推定为空。特别说明，
+    从 0 开始的范围包含第 0 个版本分隔符（如果存在），越过最后一个版本组成部分的范围
+    包含后面的版本分隔符（如果存在）。不与任何版本组成部分相交的范围会产生一个空字符串。
+
+\item[ver_rs] 有一对或多对参数，在它们后面可以选择性地加一个版本字符串。每一对参数
+    是一个范围和一个替换字符串。打印对选定的分隔符执行了替换后的版本字符串。
+    如果版本字符串没有给出，则视为 \texttt{\$\{PV\}}。
+
+    对于给出的每对参数，用替换字符串依次替换每一个索引由范围选定的版本分隔符。
+    如果范围跨越到已有的版本分隔符范围之外，则会静默地截断。
+
+\item[ver_test] 有两个或三个参数。在三个参数的格式中，第一个是左式版本字符串，然后是一个
+    操作符，最后是右式版本字符串。在两个参数的格式中，第一个版本字符串省略并使用 \texttt{\$\{PVR\}} 作为
+    左式版本字符串。操作符可以是 \texttt{-eq}（等于），\texttt{-ne}（不等于），\texttt{-gt}（大于），\texttt{-ge}（大于
+    等于），\texttt{-lt}（小于）或 \texttt{-le}（小于等于）。如果左式和右式版本字符串满足
+    指定的关系则返回 shell 真值（0）。
+
+    两个版本字符串都必须符合~\ref{sec:version-spec} 节的版本规范。
+    比较是用算法~\ref{alg:version-comparison} 进行的。
+\end{description}
+
+\subsection{杂项命令}
+下列命令在 ebuild 环境中始终可用，但确实不适合放到上文任何一个类别里。
+
+\begin{description}
+\item[unpack] 按顺序将一个或多个源码归档解包到当前目录。对于非归档压缩文件，
+    在当前目录中输出解压出来的文件，并以压缩文件的名称去掉压缩后缀作为输出的文件名。
+    在解包之后，必须确保所有解压出来的文件和目录都有 \texttt{a+r,u+w,go-w}
+    权限并且目录额外具有 \texttt{a+x} 权限。
+
+    \texttt{unpack} 的参数会按下列规则进行处理：
+    \begin{compactitem}
+    \item 不带路径（即，不包含任何斜杠）的文件名会在 \texttt{\$\{DISTDIR\}} 下查找。
+    \item 以字符串 \texttt{./} 开头的参数会按相对于工作目录进行处理。
+    \item 其他情况下，参数会按它正常的路径（绝对路径，或相对于
+        工作目录的路径）进行处理。
+    \end{compactitem}
+
+    任何无法识别格式的文件都应静默地跳过。如果一个格式受支持的文件
+    解包失败，\texttt{unpack} 应中止构建过程。
+
+    \texttt{unpack} 必须支持以下文件的解包，
+    但前提是相关的程序可用：
+    \begin{itemize}
+    \item tar 文件（\texttt{*.tar}）。ebuild 必须确保 GNU tar 已安装。
+    \item gzip 压缩文件（\texttt{*.gz, *.Z}）。ebuild 必须确保 GNU gzip 已安装。
+    \item gzip 压缩的 tar 文件（\texttt{*.tar.gz, *.tgz, *.tar.Z}）。ebuild 必须确保
+        GNU gzip 和 GNU tar 已安装。
+    \item bzip2 压缩文件（\texttt{*.bz2, *.bz}）。ebuild 必须确保 bzip2 已安装。
+    \item bzip2 压缩的 tar 文件（\texttt{*.tar.bz2, *.tbz2, *.tar.bz, *.tbz}）。ebuild 必须确保
+        bzip2 和 GNU tar 已安装。
+    \item zip 文件（\texttt{*.zip, *.ZIP, *.jar}）。ebuild 必须确保 Info-ZIP Unzip 已安装。
+    \item ar 归档（\texttt{*.a}）。ebuild 必须确保 GNU binutils 已安装。
+    \item lzma 压缩文件（\texttt{*.lzma}）。ebuild 必须确保 XZ 工具已安装。
+    \item lzma 压缩的 tar 文件（\texttt{*.tar.lzma}）。ebuild 必须确保 XZ 工具和 GNU tar 已安装。
+    \item xz 压缩文件（\texttt{*.xz}）。ebuild 必须确保 XZ 工具已安装。
+    \item xz 压缩的 tar 文件（\texttt{*.tar.xz, *.txz}）。ebuild 必须确保 XZ 工具和 GNU tar 已安装。
+    \end{itemize}
+    由 ebuild 来确保相关的外部程序可用，无论是利用 \texttt{构建工具}\ 分组中的还是通过依赖关系安装。
+
+    \texttt{unpack} 以大小写不敏感的方式匹配文件扩展名。
+
+\item[einstalldocs] 没有参数。根据
+    算法~\ref{alg:einstalldocs} 安装由变量 \texttt{DOCS} 和 \texttt{HTML_DOCS} 指定的
+    文件或默认的一组文件。此命令如果使用 \texttt{nonfatal} 调用并且执行到的
+    某条命令返回了一个非零的退出状态，那么会立即以相同的退出状态返回。
+
+\begin{algorithm}[h]
+\caption{\texttt{einstalldocs} 逻辑} \label{alg:einstalldocs}
+\begin{algorithmic}[1]
+\STATE 保存 \texttt{dodoc} 的安装目录
+\STATE 将 \texttt{dodoc} 的安装目录设置为 \texttt{usr/share/doc/\$\{PF\}}
+\IF{变量 DOCS 是一个非空数组}
+    \STATE 执行 \texttt{dodoc -r "\$\{DOCS[@]\}"}
+\ELSIF{变量 DOCS 是一个非空标量}
+    \STATE 执行 \texttt{dodoc -r \$\{DOCS\}}
+\ELSIF{变量 DOCS 未设置}
+    \FORALL{和文件名 \texttt{README*} \texttt{ChangeLog} \texttt{AUTHORS} \texttt{NEWS}
+            \texttt{TODO} \texttt{CHANGES} \texttt{THANKS} \texttt{BUGS} \texttt{FAQ} \texttt{CREDITS} \texttt{CHANGELOG} 相匹配的 $d$}
+        \IF{文件 $d$ 存在且文件大小大于零}
+            \STATE 以 $d$ 为参数执行 \texttt{dodoc}
+        \ENDIF
+    \ENDFOR
+\ENDIF
+\STATE 将 \texttt{dodoc} 的安装目录设置为 \texttt{usr/share/doc/\$\{PF\}/html}
+\IF{变量 HTML_DOCS 是一个非空数组}
+    \STATE 执行 \texttt{dodoc -r "\$\{HTML_DOCS[@]\}"}
+\ELSIF{变量 HTML_DOCS 是一个非空标量}
+    \STATE 执行 \texttt{dodoc -r \$\{HTML_DOCS\}}
+\ENDIF
+\STATE 恢复 \texttt{dodoc} 的安装目录
+\RETURN shell 真值（0）
+\end{algorithmic}
+\end{algorithm}
+
+\item[get_libdir] 打印根据算法~\ref{alg:get-libdir} 得到的 libdir。
+    必须内部实现为 shell 函数。
+
+\begin{algorithm}[!h]
+\caption{\texttt{get_libdir} 逻辑} \label{alg:get-libdir}
+\begin{algorithmic}[1]
+\STATE 令 libdir=lib
+\IF{设置了环境变量 ABI}
+    \STATE 令 libvar=LIBDIR_\$ABI
+    \IF{已设置了名称等于 libvar 的值的环境变量}
+        \STATE 令 libdir=\hspace{0em}名称等于 libvar 的值的变量的值
+    \ENDIF
+\ENDIF
+\STATE 打印 libdir 的值
+\end{algorithmic}
+\end{algorithm}
+
+\item[inherit] 详见~\ref{sec:inherit} 节。
+
+\item[default]
+    调用当前阶段函数的 \texttt{default_} 函数
+    （详见~\ref{sec:default-phase-funcs} 节）。如果当前阶段函数
+    没有 \texttt{default_} 函数则不得调用此命令。\texttt{default} 必须内部实现。
+
+\end{description}
+
+\subsection{调试命令}
+下列命令可以用于调试。一般这些命令都应该是空操作；软件包管理器可以提供一种特殊的调试模式，
+只有在调试模式下这些命令才会做一些操作。
+
+\begin{description}
+\item[debug-print] 在调试模式下以某种调试日志输出或记录传给它的参数。
+\item[debug-print-function] 以 \texttt{\$\{1\}：进入函数，参数：\$\{*:2\}}
+    为参数调用 \texttt{debug-print}。
+\end{description}
+
+\subsection{保留的命令与变量}
+
+除非另有说明，含有下列字符串（忽略大小写）之一的函数名和变量名
+全部保留以供软件包管理器使用，ebuild 不能使用或依赖它们：
+
+\begin{compactitem}
+\item \texttt{__}（两个下划线）位于字符串开头
+\item \texttt{abort}
+\item \texttt{ebuild}
+\item \texttt{hook}
+\item \texttt{prep}
+\end{compactitem}
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

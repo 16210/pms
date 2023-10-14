@@ -1,0 +1,25 @@
+*.4ct
+*.4tc
+*.aux
+*.bbl
+*.blg
+*.css
+*.dvi
+*.gin
+*.html
+*.idv
+*.lg
+*.loa
+*.log
+*.lol
+*.lot
+*.lox
+*.out
+*.pdf
+*.tmp
+*.toc
+*.xref
+
+# Emacs backup files and locks
+*~
+.#*

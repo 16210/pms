@@ -1,0 +1,81 @@
+\chapter{eclass}
+\label{ch:eclasses}
+
+eclass 用于存储多个 ebuild 共用的代码，这大大有助于提高可维护性与减小仓库的体积。
+在格式上 eclass 与 ebuild 类似，而实际上 eclass 被拉入使用它的 ebuild 成为其一部分，
+因此，它们用的是同一个解释器，对可解析性有着相同的要求。
+
+eclass 必须放在仓库顶层目录的 \texttt{eclass} 目录中——详见~\ref{sec:eclass-dir} 节。
+每个 eclass 是以 \texttt{<\hspace{0em}\nolinebreak 名称\hspace{0em}\nolinebreak>.eclass}
+命名的单个文件，其中 \texttt{<\hspace{0em}名称\hspace{0em}>} 就是这个 eclass 的名称，
+用来被下文的 \texttt{inherit} 和 \texttt{EXPORT_FUNCTIONS} 命令引用。
+
+\section{inherit 命令}
+\label{sec:inherit}
+
+ebuild 可以在全局区域中使用 \texttt{inherit} 命令来继承 eclass。这么做会使得 eclass
+被拉入，成为 ebuild 的一部分——任何在 eclass 中定义的函数和变量都会出现在 ebuild
+中，只有几个特定变量会采取特殊处理，这将在下文详述。
+
+\texttt{inherit} 命令需要一个或多个参数，这些参数必须是 eclass 的名称（不带
+路径和 \texttt{.eclass} 后缀）。参数所指代的 eclass 会按顺序依次拉入。
+
+同一个 eclass 到最后可能会被拉入多次。
+
+\texttt{inherit} 命令还必须确保：
+
+\begin{compactitem}
+\item 拉入 eclass 时 \texttt{ECLASS} 变量的值设为当前 eclass 的名称。
+\item 一旦完成了所有继承，\texttt{INHERITED} 变量的值设为
+    以空格分隔的所有用到的 eclass 的名称。
+\end{compactitem}
+
+\section{eclass 累加变量}
+
+当 \texttt{IUSE}，\texttt{REQUIRED_USE}，\texttt{PROPERTIES}，\texttt{RESTRICT}，
+\texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND} 和 \texttt{IDEPEND} 变量被
+eclass 赋值时会采取特殊处理。这些变量的值会在 eclass 之间累加，当前 eclass 所赋的值
+会追加到上一个 eclass 拉入后，这些变量最终结果的后边。随后 eclass 所赋的值会追加到
+ebuild 所赋的值的后边。如果是 \texttt{RDEPEND}，这些操作要在~\ref{sec:rdepend-depend}
+节所述的隐式 \texttt{RDEPEND} 规则应用之后再做。
+
+\section{EXPORT_FUNCTIONS}
+
+在 eclass 的环境下有一个在 ebuild 中既不能用也没有意义的命令——\texttt{EXPORT_FUNCTIONS}。
+eclass 可以用它来导出 ebuild 阶段函数，使得继承它的 ebuild 得到的默认实现是 eclass
+中定义的版本。\texttt{EXPORT_FUNCTIONS} 的使用通过一个例子——假想中的 \texttt{foo.eclass}
+来说明，如代码清单~\ref{lst:export-functions} 所示。
+
+\begin{listing}[h]
+\caption{\texttt{EXPORT_FUNCTIONS} 示例：\texttt{foo.eclass}} \label{lst:export-functions}
+\begin{verbatim}
+foo_src_compile()
+{
+    econf --enable-gerbil \
+            $(use_enable fnord)
+    emake gerbil || die "Couldn't make a gerbil"
+    emake || die "emake failed"
+}
+
+EXPORT_FUNCTIONS src_compile
+\end{verbatim}
+\end{listing}
+
+这个例子定义了一个 eclass 版的 \texttt{src_compile} 函数并使用 \texttt{EXPORT_FUNCTIONS} 将它导出。
+这样一来，此函数在所有继承了 \texttt{foo.eclass} 的 ebuild 中都将是默认实现，而如果在 ebuild 中
+定义了 \texttt{src_compile}，那么既可以通过调用 \texttt{foo_src_compile} 来执行 \texttt{foo.eclass}
+中的函数，也可以通过调用 \texttt{default_src_compile} 来执行软件包管理器提供的默认实现。
+
+\texttt{EXPORT_FUNCTIONS} 只能用于 ebuild 阶段函数，并且要导出的函数必须以
+\texttt{eclass\hspace{0em}名称_阶段函数名称}\ 命名。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

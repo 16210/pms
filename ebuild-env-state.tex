@@ -1,0 +1,24 @@
+\section{函数之间的环境保存}
+\label{sec:ebuild-env-state}
+
+所有 ebuild 定义的非局部变量均参与环境保存，对于参与环境保存的变量和函数而言，
+如果变量在调用序列中靠前的函数里赋值，则需要为靠后的函数，
+包括以后卸载过程中执行的函数保留该变量的值。
+
+已导出的变量必须在后续的函数中保持导出，对软件包管理器具有特殊含义的变量不在此规则之内。
+
+对于二进制包，软件包管理器需要在 \texttt{src_install} 函数结束时将所有参与环境保存
+的变量保存到 \texttt{环境.sh} 文件中，当二进制包安装时，应在 \texttt{pkg_preinst}
+函数执行前将此文件拉入，以此恢复保存的变量。变量在 \texttt{环境.sh} 中保存的形式
+不做规定，但不得依赖外部命令。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

@@ -1,0 +1,212 @@
+\chapter{名称与版本}
+
+\section{名称限制}
+
+名称不能是空白。软件包管理器不得给任何名称施加固定的长度上限。
+软件包管理器应该根据下面这些规则说明或拒绝无效的名称。
+
+\subsection{类别名称}
+\label{sec:category-names}
+类别名称可以包含 [\texttt{A-Za-z0-9+_.-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符、点号或加号开头。
+
+\subsection{软件包名称}
+\label{sec:package-names}
+软件包名称可以包含 [\texttt{A-Za-z0-9+_-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符或加号开头，
+并且不能以连字符或连字符加一个符合版本语法（详见~\ref{sec:version-spec} 节）的东西结尾。
+
+\note{软件包名称不包含类别名称。术语 \textit{限定的软件包名称}\ 表示 \texttt{类别/软件包}\
+这种组合。例如 \texttt{app-editors/vim} 就是一个限定的软件包名称。}
+
+\subsection{插槽名称}
+\label{sec:slot-names}
+插槽名称可以包含 [\texttt{A-Za-z0-9+_.-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符、点号或加号开头。
+
+\subsection{应用标志名称}
+应用标志名称可以包含 [\texttt{A-Za-z0-9+-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符或加号开头。
+如果是带前缀的折叠应用标志，根据 \ref{sec:use-iuse-handling}
+节所述的展开方式名称中还会带有下划线。
+
+\subsection{仓库名称}
+\label{sec:repository-names}
+仓库名称可以包含 [\texttt{A-Za-z0-9_-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符开头。
+另外，每一个仓库名称必须也是一个有效的软件包名称。
+
+\subsection{许可证名称}
+\label{sec:license-names}
+许可证名称可以包含 [\texttt{A-Za-z0-9+_.-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符、点号或加号开头。
+
+\subsection{平台名称}
+\label{sec:keyword-names}
+平台名称可以包含 [\texttt{A-Za-z0-9_-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符开头。
+
+\subsection{EAPI 值}
+\label{sec:eapi-value}
+EAPI 值可以包含 [\texttt{A-Za-z0-9+_.-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符、点号或加号开头。
+
+\subsection{系统轮廓名称}
+\label{sec:profile-names}
+系统轮廓名称可以包含 [\texttt{A-Za-z0-9_.-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符、点号、下划线开头或结尾。
+
+\subsection{软件包分组名称}
+\label{sec:group-names}
+软件包分组名称可以包含 [\texttt{A-Za-z0-9_-}] 中的任何字符，以及 Unicode 字符集
+\texttt{U+4E00-U+9FA5} 范围内的字符。不能以连字符开头或结尾。
+
+\section{版本规范}
+\label{sec:version-spec}
+软件包版本可以分为若干个组成部分，从左到右分别是：
+\begin{compactitem}
+\item 一个可选的纪元部分，格式为一个无符号整数加一个下划线。
+\item 一个或多个数字部分，首个数字部分的格式为一个无符号整数，非首个数字部分的格式为
+    一个点号加一个无符号整数。
+\item 一个可选的字母部分，格式为一个小写字母。
+\item 一个可选的后缀部分，格式为一个 \texttt{_alpha}，\texttt{_beta}，\texttt{_pre}，
+    \texttt{_rc} 或 \texttt{_p} 字符串，加一个可选的无符号整数。
+\item 一个可选的修订部分，格式为字符串 \texttt{-r} 加一个无符号整数，这个整数称为“修订号”。
+\end{compactitem}
+
+这些组成部分中的无符号整数允许带有前导 0。
+
+\section{版本比较}
+
+版本的比较是按照算法~\ref{alg:version-comparison} 及其子算法，从左到右逐个组成部分进行的。
+如果子算法能比出高低，则它就是整个版本比较的结果；
+如果子算法不能比出高低，那么比较过程就从调用它的地方继续进行。
+
+\begin{algorithm}[h]
+\caption{版本比较顶层逻辑} \label{alg:version-comparison}
+\begin{algorithmic}[1]
+    \STATE 令 $A$ 和 $B$ 等于要比较的两个版本
+    \STATE 调用算法~\ref{alg:version-comparison-epoch} 比较它们的纪元部分
+    \STATE 调用算法~\ref{alg:version-comparison-numeric} 比较它们的数字部分
+    \IF{$A$ 和 $B$ 都带有字母部分}
+        \STATE 调用算法~\ref{alg:version-comparison-letter} 比较它们的字母部分
+    \ELSIF{$A$ 带有字母部分}
+        \RETURN $A<B$
+    \ELSIF{$B$ 带有字母部分}
+        \RETURN $A>B$
+    \ENDIF
+    \IF{$A$ 和 $B$ 都带有后缀部分}
+        \STATE 调用算法~\ref{alg:version-comparison-suffix} 比较它们的后缀部分
+    \ELSIF{$A$ 带有后缀部分}
+        \RETURN $A<B$
+    \ELSIF{$B$ 带有后缀部分}
+        \RETURN $A>B$
+    \ENDIF
+    \STATE 调用算法~\ref{alg:version-comparison-revision} 比较它们的修订部分
+    \RETURN $A=B$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{版本纪元部分的比较逻辑} \label{alg:version-comparison-epoch}
+\begin{algorithmic}[1]
+    \STATE 令 $Ae$ 等于 $A$ 的纪元部分去掉下划线，如果纪元部分省略则等于 $\texttt{0}$
+    \STATE 令 $Be$ 等于 $B$ 的纪元部分去掉下划线，如果纪元部分省略则等于 $\texttt{0}$
+    \IF{以整数进行比较 $Ae>Be$}
+        \RETURN $A>B$
+    \ELSIF{以整数进行比较 $Ae<Be$}
+        \RETURN $A<B$
+    \ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[p]
+\caption{版本数字部分的比较逻辑} \label{alg:version-comparison-numeric}
+\begin{algorithmic}[1]
+    \STATE 记 $An_k$ 和 $Bn_k$ 分别为 $A$ 和 $B$ 的第 $k$ 个 $0$ 索引的数字部分
+    \IF{以整数进行比较 $An_0>Bn_0$}
+        \RETURN $A>B$
+    \ELSIF{以整数进行比较 $An_0<Bn_0$}
+        \RETURN $A<B$
+    \ENDIF
+    \STATE 令 $Ann$ 等于 $A$ 的数字部分的个数
+    \STATE 令 $Bnn$ 等于 $B$ 的数字部分的个数
+    \FORALL{满足 $i\geq1$ 且 $i<Ann$ 且 $i<Bnn$ 的 $i$，按升序依次}
+        \STATE 令 $An'_i$ 等于 $An_i$ 去掉点号
+        \STATE 令 $Bn'_i$ 等于 $Bn_i$ 去掉点号
+        \IF{以整数进行比较 $An'_i>Bn'_i$}
+            \RETURN $A>B$
+        \ELSIF{以整数进行比较 $An'_i<Bn'_i$}
+            \RETURN $A<B$
+        \ENDIF
+    \ENDFOR
+    \IF{$Ann>Bnn$}
+        \RETURN $A>B$
+    \ELSIF{$Ann<Bnn$}
+        \RETURN $A<B$
+    \ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[p]
+\caption{版本字母部分的比较逻辑} \label{alg:version-comparison-letter}
+\begin{algorithmic}[1]
+    \STATE 令 $Al$ 和 $Bl$ 分别等于 $A$ 和 $B$ 的字母部分
+    \IF{以 Unicode 字符串进行比较 $Al>Bl$}
+        \RETURN $A>B$
+    \ELSIF{以 Unicode 字符串进行比较 $Al<Bl$}
+        \RETURN $A<B$
+    \ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+\caption{版本后缀部分的比较逻辑} \label{alg:version-comparison-suffix}
+\begin{algorithmic}[1]
+    \STATE 令 $As$ 和 $Bs$ 分别等于 $A$ 和 $B$ 的后缀部分
+    \IF{$As$ 和 $Bs$ 是相同的类型（比如都是 \texttt{_alpha} 或 \texttt{_beta}）}
+        \STATE 令 $As'$ 等于 $As$ 的整数部分，如果省略则等于 \texttt{0}
+        \STATE 令 $Bs'$ 等于 $Bs$ 的整数部分，如果省略则等于 \texttt{0}
+        \IF{以整数进行比较 $As'>Bs'$}
+            \RETURN $A>B$
+        \ELSIF{以整数进行比较 $As'<Bs'$}
+            \RETURN $A<B$
+        \ENDIF
+    \ELSIF{以 $\mbox{\texttt{_alpha}}<\mbox{\texttt{_beta}}<\mbox{\texttt{_pre}}<\mbox{\texttt{_rc}}<\mbox{\texttt{_p}}$
+        的顺序进行比较 $As$ 的类型大于 $Bs$ 的类型}
+        \RETURN $A>B$
+    \ELSE
+        \RETURN $A<B$
+    \ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+\caption{版本修订部分的比较逻辑} \label{alg:version-comparison-revision}
+\begin{algorithmic}[1]
+    \STATE 令 $Ar$ 等于 $A$ 的修订部分中的修订号，如果修订部分省略则等于 $\texttt{0}$
+    \STATE 令 $Br$ 等于 $B$ 的修订部分中的修订号，如果修订部分省略则等于 $\texttt{0}$
+    \IF{以整数进行比较 $Ar>Br$}
+        \RETURN $A>B$
+    \ELSIF{以整数进行比较 $Ar<Br$}
+        \RETURN $A<B$
+    \ENDIF
+\end{algorithmic}
+\end{algorithm}
+
+\section{版本唯一性}
+
+在一个给定的仓库中，任意两个软件包不能具有相同的限定软件包名与相等的版本。
+例如，\texttt{foo-bar/baz-1.0.2}，\texttt{foo-bar/baz-1.0.2-r0} 和 \texttt{foo-bar/baz-0_1.0.2}
+在一个仓库中最多只能有一个。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

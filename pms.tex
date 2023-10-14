@@ -1,0 +1,71 @@
+\documentclass[fontset=none]{pms}
+\setCJKmainfont{FandolSong}[AutoFakeSlant=0.2]
+\setCJKmonofont{FandolFang}
+
+\CurrentEAPIIs{1}
+
+\title{软件包管理器规范 \\ {\large 版本 \TheCurrentEAPI .0}}
+\ChangeWhenAddingAnEAPI{1}
+\author{%
+}
+\hypersetup{%
+    pdftitle={软件包管理器规范},
+}
+
+\begin{document}
+\maketitle
+
+\thispagestyle{empty}
+\vspace*{\fill}
+{%
+    \small
+    此文档以 Creative Commons Attribution-ShareAlike 4.0 International
+    许可证发布。要查看该许可证的副本，请访问
+    \url{https://creativecommons.org/licenses/by-sa/4.0/}。
+
+    \commitinfo
+}
+
+\tableofcontents
+\listofalgorithms
+\listoflistings
+\listoftables
+
+\include{introduction}
+
+\include{eapis}
+
+\include{names}
+
+\include{tree-layout}
+
+\include{profiles}
+
+\include{ebuild-format}
+
+\include{ebuild-vars}
+
+\include{dependencies}
+
+\include{ebuild-functions}
+
+\include{eclasses}
+
+\include{ebuild-environment}
+
+\include{commands}
+
+\include{merge}
+
+\end{document}
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

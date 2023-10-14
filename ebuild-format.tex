@@ -1,0 +1,62 @@
+\chapter{ebuild 文件格式与软件包分组}
+\label{ch:ebuild-format-group}
+\section{ebuild 文件格式}
+\label{sec:ebuild-format}
+
+ebuild 文件格式的基本形式是 bash 脚本格式的子集。解释器假定是 GNU bash，版本为
+5.0 或更高的版本。如果可能的话，软件包管理器应该把 shell 的兼容等级设为此版本，
+同时必须确保此类兼容性设置（比如 \texttt{BASH_COMPAT} 变量）不会导出到外部程序中。
+
+bash 的 \texttt{failglob} 选项会在 ebuild 拉入前设置。因此
+在 ebuild 拉入过程中文件名通配符展开时的模式匹配失败会造成一个错误。
+
+名称引用变量（bash 4.3 版本引入）不得使用，除非是在局部区域中。
+
+文件的编码必须是带有 Unix 风格换行符的 UTF-8。被拉入时，ebuild 必须定义某些变量
+和函数（具体内容详见第\ref{ch:ebuild-vars}章和第\ref{ch:ebuild-functions}章），
+不得以任何方式调用外部程序，往标准输出或标准错误中写入，或者修改系统状态。
+
+\section{扩展 ebuild 格式}
+在 ebuild 基本格式的基础上，软件包有源码包和二进制包两种扩展格式。
+
+\subsection{源码包}
+ebuild 源码包是 tar 格式的归档，其中包含以下文件和目录：
+\begin{compactitem}
+\item 软件包基本格式的 ebuild 文件，命名规则和 \ref{sec:package-dirs} 节中的相同。
+\item \texttt{FILESDIR} 目录，含有软件包所需的所有非源码文件。
+\item \texttt{DISTDIR} 目录，含有 \texttt{SRC_URI} 变量中所有出现过的 URI（不考虑应用标志条件）
+    下载得到的文件。如果 URI 后面使用了箭头，那么保存到此目录中的文件名应改为箭头右侧的文件名。
+\end{compactitem}
+
+归档中文件名的字符集必须是 Unicode，编码由实现规定。
+
+\subsection{二进制包}
+ebuild 二进制包是 tar 格式的归档，其中包含以下文件和目录：
+\begin{compactitem}
+\item 软件包基本格式的 ebuild 文件，命名规则和 \ref{sec:package-dirs} 节中的相同。
+\item \texttt{D} 目录，含有软件包将要合并的所有文件。
+\item \texttt{环境.sh} 文件，用于构建和安装过程之间的环境保存，详见 \ref{sec:ebuild-env-state} 节。
+\end{compactitem}
+
+归档中文件名的字符集和编码必须和源码包保持一致。
+
+\section{软件包分组}
+软件包管理器应当允许用户创建和管理自定义的软件包分组，同时维护以下分组：
+\begin{description}
+\item[所有] 当前系统上安装的所有 ebuild 软件包。
+\item[显式安装] 在软件包管理器提供的安装命令（或界面，如果提供的话）中指定的软件包。
+\item[隐式安装] \texttt{所有}\ 分组中不属于 \texttt{显式安装}\ 分组的软件包。
+\end{description}
+
+这 3 个分组由软件包管理器自动维护，是否允许用户干预不做规定。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

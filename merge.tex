@@ -1,0 +1,100 @@
+\chapter{合并与删除}
+
+\note{在本章节中，\textit{文件}和\textit{普通文件}具有它们的 Unix 含义。}
+
+\section{概述}
+
+合并过程是指将 \texttt{D} 目录中的内容合并进 \texttt{ROOT} 文件系统。这不是直接复制；
+其中有各种细节问题需要处理。此过程发生在 \texttt{pkg_preinst} 和 \texttt{pkg_postinst} 之间。
+
+删除过程是指删除软件包已安装的文件。其中的细节不在此规范的覆盖范围内。
+此过程发生在 \texttt{pkg_prerm} 和 \texttt{pkg_postrm} 之间。
+
+\section{目录}
+
+目录要递归地合并进文件系统。合并使用的方法不做规定，只要最后的结果正确就行。
+
+ebuild 不得用目录覆盖一个既不是目录也不是指向目录的符号链接的文件。
+
+\subsection{权限}
+
+目录的所有者、所属组以及权限（包括 set*id 和 sticky 位）必须保留，
+其他目录属性包括修改时间，则可以丢弃。
+
+\section{普通文件}
+
+普通文件在往文件系统中合并时需注意下文关于配置文件保护的说明。合并使用的方法不做规定，
+只要最后的结果正确就行。
+
+ebuild 不得用普通文件覆盖一个既不是普通文件也不是指向普通文件的符号链接的文件。
+
+\subsection{权限}
+
+文件的所有者、所属组以及权限（包括 set*id 和 sticky 位）必须保留，不过软件包管理器
+可以缩减那些设置了 set*id 位可执行文件的读权限和写权限。其他文件属性则可以丢弃。
+
+\subsection{文件的修改时间}
+
+软件包管理器必须保留普通文件的修改时间，
+包括在合并前经过压缩的文件。只有软件包管理器新创建的文件和剔除了符号的二进制目标文件
+是两个例外。
+
+在保留的时候，每个普通文件修改时间中秒的部分必须精确保留。秒以下的部分要么设成 0，
+要么就设成不大于原始时间中秒以下部分，操作系统和文件系统能支持到的最大值。
+
+对于任何给定的目的文件系统，软件包管理器必须确保对于任意两个保留修改时间的文件 $a$
+和 $b$，如果它们在原来的暂存目录下有 $\mbox{修改时间}(a) \leq \mbox{修改时间}(b)$
+的关系，则合并后在该文件系统中此关系仍然成立。
+
+\subsection{配置文件保护}
+\label{sec:config-protect}
+
+软件包管理器必须提供一种方法来保护用户的配置文件免遭软件包更新时的覆盖。系统轮廓变量
+\texttt{CONFIG_PROTECT} 和 \texttt{CONFIG_PROTECT_MASK}（详见~\ref{sec:profile-variables} 节）
+控制着必须强制使用这种方法的路径。
+
+为了确保和配置更新工具的互操作性，软件包管理器在合并普通文件时必须使用以下方案：
+
+\begin{compactenum}
+\item 如果要合并的文件所在的目录既不在 \texttt{CONFIG_PROTECT} 里，也不是它里边任何一个目录
+    的子目录，并且该文件也不在 \texttt{CONFIG_PROTECT} 里，那么文件正常合并。
+\item 如果要合并的文件所在的目录在 \texttt{CONFIG_PROTECT_MASK} 里，或者是它里边某个目录的
+    子目录，又或者该文件在 \texttt{CONFIG_PROTECT_MASK} 里，那么文件正常合并。
+\item 如果正在合并的文件和现有的文件不重名，或者重名但内容相同，则文件正常合并。
+\item 在不满足上述条件的情况下，在文件名的开头添加 \texttt{._cfg0000_}。如果新名称和现有的
+    文件不重名，则文件就以新名称合并。
+\item 如果第 4 条的条件也不满足，则增加数字部分（变成 \texttt{._cfg0001_<\hspace{0em}名称\hspace{0em}>}）并重复
+    第 4 条，依此类推直到找到一个不重名的文件名。
+\item 如果用这种方式达到了 9999，软件包管理器的行为不做定义。
+\end{compactenum}
+
+\section{符号链接}
+
+符号链接合并进文件系统之后还是符号链接。除了下文所述的情况外，合并后的链接目标应和在 \texttt{D}
+目录中的链接目标相同。合并使用的方法不做规定，只要最后的结果正确就行。
+
+ebuild 不得用符号链接覆盖一个目录。
+
+\subsection{重写}
+
+对于目标以 \texttt{\$\{D\}} 开头的绝对链接，必须去掉目标开头的 \texttt{\$\{D\}} 进行重写。执行此操作时
+软件包管理器应发出一个通知。
+
+\section{硬链接}
+
+一个硬链接既可以合并为一个带链接的文件也可以合并为独立文件。
+
+\section{其他文件}
+
+ebuild 不得安装任何其他类型的文件（管道，设备文件等）。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

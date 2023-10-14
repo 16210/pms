@@ -1,0 +1,201 @@
+\chapter{软件包依赖}
+\label{ch:dependencies}
+
+\section{依赖的种类}
+\label{sec:dependency-classes}
+
+ebuild 之间有四种依赖关系：
+
+\begin{compactitem}
+\item 构建依赖（\texttt{BDEPEND}），软件包的构建过程所需要的软件包。这种依赖必须在 \texttt{pkg_setup}
+    阶段函数执行前安装，并且在所有 \texttt{src_*} 阶段函数执行期间确保可用。
+    如果正在安装的是二进制包，则忽略构建依赖。
+\item 安装依赖（\texttt{IDEPEND}），软件包的 \texttt{pkg_preinst} 和 \texttt{pkg_postinst}
+    阶段函数所需要的软件包。ebuild 除了在 \texttt{pkg_preinst} 和 \texttt{pkg_postinst} 中调用它们之外，
+    也可以在 \texttt{pkg_prerm} 和 \texttt{pkg_postrm} 中调用它们，但不得依赖它们此时还能使用。
+\item 强运行依赖（\texttt{RDEPEND}），软件包运行所必须的软件包。这种依赖要在 ebuild 安装的结果
+    被视为可用之前安装并确保可用。
+\item 弱运行依赖（\texttt{PDEPEND}），也叫“后置依赖”。软件包的次要功能需要或在某些不常见的情况下会用到，
+    但不装也不会影响主要功能的软件包。这种依赖可以在 ebuild 安装之后的某个时间安装。
+\end{compactitem}
+
+各个阶段函数执行前需要安装的依赖种类在表 \ref{tab:phase-function-dependency-classes} 中列出。
+
+\begin{centertable}{针对不同阶段函数需要满足的依赖种类}
+    \label{tab:phase-function-dependency-classes}
+    \begin{tabular}{P{13.5em} P{0.6\textwidth}}
+      \toprule
+      \multicolumn{1}{c}{\textbf{阶段函数}} &
+      \multicolumn{1}{c}{\textbf{需要满足的依赖种类}} \\
+      \midrule
+      \texttt{pkg_pretend}，\texttt{pkg_info}，\texttt{pkg_nofetch} &
+          无（可以依赖 \texttt{最小安装}\ 分组里的软件包） \\
+      \addlinespace
+      \texttt{pkg_setup} & 如果是在源码构建过程中执行，就和 \texttt{src_unpack}
+          一样，否则就和 \texttt{pkg_pretend} 一样。 \\
+      \addlinespace
+      \texttt{src_unpack}，\texttt{src_prepare}，\texttt{src_configure}，\texttt{src_compile}，\texttt{src_test}，
+          \texttt{src_install} & \texttt{BDEPEND} \\
+      \addlinespace
+      \texttt{pkg_preinst}，\texttt{pkg_postinst} &
+          \texttt{IDEPEND} \\
+      \addlinespace
+      \texttt{pkg_prerm}，\texttt{pkg_postrm}，\texttt{pkg_config} &
+          \texttt{RDEPEND} \\
+      \bottomrule
+    \end{tabular}
+\end{centertable}
+
+\section{依赖说明符格式}
+\label{sec:dependency-spec}
+
+本节描述的说明符不仅是在 4 个依赖变量中使用的依赖说明符，同时也是在
+\texttt{SRC_URI}、\texttt{LICENSE}、\texttt{REQUIRED_USE}、\texttt{PROPERTIES} 和
+\texttt{RESTRICT} 中使用的“依赖风格的说明符”。
+
+说明符可以是以下几种形式：
+
+\begin{compactitem}
+\item 软件包依赖说明符。允许出现在 \texttt{BDEPEND}、\texttt{RDEPEND}、
+    \texttt{PDEPEND}、\texttt{IDEPEND} 中。
+\item 形如 \texttt{协议://主机/路径}\ 的 URI，再加可选的箭头语法。允许出现在 \texttt{SRC_URI} 中。
+\item 一个单独的文件名，允许出现在 \texttt{SRC_URI} 中。
+\item 许可证名称（比如 \texttt{GPL-2}）。允许出现在 \texttt{LICENSE} 中。
+\item 应用标志名称，前面可选地带一个感叹号。允许出现在 \texttt{REQUIRED_USE} 中。
+\item 属性标记。允许出现在 \texttt{PROPERTIES} 中。
+\item 行为约束标记。允许出现在 \texttt{RESTRICT} 中。
+\item 一个全选组，格式为：\texttt{'('(说明符\ 空格)* 说明符')'}，即，一对圆括号，
+    括号里是一个或多个以空格分隔的说明符。允许出现在 \texttt{BDEPEND}、
+    \texttt{RDEPEND}、\texttt{PDEPEND}、\texttt{IDEPEND}、\texttt{SRC_URI}、\texttt{LICENSE}、
+    \texttt{REQUIRED_USE}、\texttt{PROPERTIES}、\texttt{RESTRICT} 中。
+\item 一个任选组，格式为：\texttt{'||('(说明符\ 空格)* 说明符')'}，即，一个字符串 \texttt{||}，
+    一对圆括号，括号里是一个或多个以空格分隔的说明符。允许出现在 \texttt{BDEPEND}、
+    \texttt{RDEPEND}、\texttt{PDEPEND}、\texttt{IDEPEND}、\texttt{LICENSE}、\texttt{REQUIRED_USE} 中。
+\item 一个单选组，格式与任选组相比除了开头的字符串换成了
+    \texttt{\textasciicircum\textasciicircum} 外，其他的都一样。允许出现在 \texttt{REQUIRED_USE} 中。
+\item 一个至多单选组，格式与任选组相比除了开头的字符串换成了
+    \texttt{??} 外，其他的都一样。允许出现在 \texttt{REQUIRED_USE} 中。
+\item 一个应用标志条件组，格式为：\texttt{'!'?\ 标志名称\ '?('(说明符\ 空格)* 说明符')'}，即，
+    一个可选的感叹号，一个应用标志名称，一个问号，一对圆括号，括号里是一个或多个以空格分隔的说明符。
+    允许出现在 \texttt{BDEPEND}、\texttt{RDEPEND}、\texttt{PDEPEND}、\texttt{IDEPEND}、\texttt{SRC_URI}、
+    \texttt{LICENSE}、\texttt{REQUIRED_USE}、\texttt{PROPERTIES}、\texttt{RESTRICT} 中。
+\end{compactitem}
+
+\subsection{全选说明符}
+
+在全选组中，所有的说明符都生效（在 \texttt{SRC_URI}，\texttt{LICENSE}，\texttt{PROPERTIES}，
+\texttt{RESTRICT} 中）或必须匹配（在 \texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND}，
+\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。
+
+\subsection{应用标志条件说明符}
+
+在应用标志条件组中，如果相关的应用标志被启用（若有感叹号前缀则为禁用），则所有的说明符都
+生效（在 \texttt{SRC_URI}，\texttt{LICENSE}，\texttt{PROPERTIES}，
+\texttt{RESTRICT} 中）或必须匹配（在 \texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND}，
+\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。否则忽略这个组。
+
+在应用标志条件组中出现 \texttt{IUSE_EFFECTIVE} 中不存在的应用标志会导致软件包被视为已屏蔽。
+
+\subsection{任选说明符}
+
+在任选组中，至少有一个说明符生效（在 \texttt{LICENSE} 中）或必须匹配（在 \texttt{BDEPEND}，
+\texttt{RDEPEND}，\texttt{PDEPEND}，\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。
+
+\subsection{单选说明符}
+
+在单选组中必须有且仅有一个说明符匹配。
+
+\subsection{至多单选说明符}
+
+在至多单选组中，最多只能有一个说明符匹配。
+
+\section{软件包依赖说明符}
+\label{sec:package-dependency-spec}
+
+软件包依赖说明符的格式如下：
+
+\begin{verbatim}
+<阻塞符><操作符><限定的软件包名称><连字符加版本><插槽依赖><应用标志依赖>
+\end{verbatim}
+
+其中操作符和连字符加版本必须一起出现，除限定的软件包名称外，其他所有部分都是可选的。
+软件包管理器遇到不合规的说明符时应当警告或报错。
+
+\subsection{操作符}
+\label{sec:dep-operator}
+
+在软件包依赖中可以使用以下几种操作符：
+
+\begin{description}
+\item[\texttt{<}] 严格小于指定的版本。
+\item[\texttt{<=}] 小于或等于指定的版本。
+\item[\texttt{=}] 与指定的版本完全相等。特殊例外：如果指定的版本后面紧跟着一个星号，
+    那么只比较给定数量的版本组成部分，即，星号扮演着后面组成部分通配符的角色。
+    要使用星号，必须确保说明符去掉星号后仍然是有效的。（星号与任何其他操作符一起使用都是非法的）
+\item[\texttt{\textasciitilde}] 在忽略修订部分的情况下与指定的版本完全相等。
+\item[\texttt{>=}] 大于或等于指定的版本。
+\item[\texttt{>}] 严格大于指定的版本。
+\end{description}
+
+\subsection{阻塞符}
+
+阻塞符是一个感叹号，如果软件包依赖说明符中加了阻塞符，那么指定的软件包没有安装才算作依赖满足。
+
+阻塞符不能出现在 \texttt{PDEPEND} 中。
+
+\subsection{插槽依赖}
+\label{sec:slot-dep}
+
+插槽依赖由一个冒号和以下几种形式之一组成：
+\begin{description}
+\item[=] 表示任何插槽都可以接受。对于运行依赖，在软件包安装完成后，如果依赖升级或降级到一个
+    主插槽和子插槽不全相同的版本，软件包需要重新构建。
+\item[插槽] 表示只有给定的主插槽可以接受。对于运行依赖，在软件包安装完成后，如果依赖升级
+    或降级到一个子插槽不同的版本，软件包不需要重新构建。
+\item[插槽\hspace{0em}=] 表示只有给定的主插槽可以接受。对于运行依赖，在软件包安装完成后，
+    如果依赖升级或降级到一个子插槽不同的版本，软件包需要重新构建。
+\item[插槽/子插槽] 表示只有给定的主插槽和子插槽可以接受。
+\end{description}
+
+如果没有插槽依赖，表示任何插槽都可以接受，对于运行依赖，在软件包安装完成后，
+如果依赖升级或降级到一个插槽不同的版本，软件包不需要重新构建。
+
+在 \texttt{PDEPEND} 和任选组中使用带等号的插槽依赖是无效的。
+
+\subsection{应用标志依赖}
+\label{sec:use-dep}
+
+应用标志依赖由以下几种形式之一组成：
+\begin{description}
+\item[{[标志]}] 被依赖的软件包的此标志必须启用。
+\item[{[-标志]}] 被依赖的软件包的此标志必须禁用。
+\item[{[标志\hspace{0em}=]}] 如果启用了此标志，则被依赖的软件包的此标志必须启用，否则必须禁用。
+\item[{[!\hspace{0em}标志\hspace{0em}=]}] 如果启用了此标志，则被依赖的软件包的此标志必须禁用，否则必须启用。
+\item[{[标志?]}] 如果启用了此标志，则被依赖的软件包的此标志必须启用。
+\item[{[!\hspace{0em}标志?]}] 如果禁用了此标志，则被依赖的软件包的此标志必须禁用。
+\end{description}
+
+在这 6 种形式的基础上，标志名称的后面可以紧跟一个
+由 \texttt{(+)} 或 \texttt{(-)} 表示的“默认值”。前者表示，当应用标志依赖应用于一个
+\texttt{IUSE_EFFECTIVE} 中没有相关标志的软件包时，软件包管理器的行为应等同于
+标志存在并且已启用；而后者则是存在并且已禁用。
+如果没有指定这种默认值，将应用标志依赖应用于 \texttt{IUSE_EFFECTIVE} 中
+没有相关标志的 ebuild 将会产生一个错误。
+
+ebuild 在自己的 \texttt{IUSE_EFFECTIVE} 中没有相关标志的情况下使用后 4 种形式的
+应用标志依赖会导致自身被软件包管理器屏蔽。
+
+多个依赖可以用逗号分隔写在一起，例如 \texttt{[第一个,-第二个,\hspace{0em}第三个?]}。
+
+如果指定了多个依赖，那么每一个都必须满足。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

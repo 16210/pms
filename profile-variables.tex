@@ -1,0 +1,64 @@
+\section{系统轮廓变量}
+\label{sec:profile-variables}
+
+本节记录了在系统轮廓的 \texttt{构建配置}\ 文件中定义时具有特殊含义或特殊行为的变量。
+
+\subsection{递增式变量}
+\textit{递增式}变量必须在父系统轮廓和子系统轮廓之间按照以下方式叠加：从最顶层的父系统轮廓开始，
+将变量以空格分隔的值看成是标记，然后拼接列表。遇到以连字符开头的标记 $T$ 就将它移除，
+并把前面所有和 $T$ 去掉连字符后一样的标记也一并移除，或者，如果 $T$ 等于 \texttt{-*}，则将前面
+所有的值都移除。由于这种处理方式，在最终结果里标记的顺序可能是任意的，
+不一定和哪个系统轮廓中标记的顺序有关。下列变量必须按照这种方式处理：
+\begin{compactitem}
+\item \texttt{USE}
+\item \texttt{USE_EXPAND}
+\item \texttt{USE_EXPAND_HIDDEN}
+\item \texttt{CONFIG_PROTECT}
+\item \texttt{CONFIG_PROTECT_MASK}
+\item \texttt{IUSE_IMPLICIT}
+\item \texttt{USE_EXPAND_IMPLICIT}
+\item \texttt{USE_EXPAND_UNPREFIXED}
+\item \texttt{ENV_UNSET}
+\end{compactitem}
+
+其他的变量，除了那些参与折叠应用标志展开的变量（见 \ref{sec:use-iuse-handling} 节），
+都不能当成递增式变量处理——子系统轮廓中定义的应完全覆盖父系统轮廓中定义的。
+
+\subsection{特定的变量及其含义}
+\label{sec:specific-variables}
+下列变量在系统轮廓中必须设置或具有特定的含义：
+\begin{description}
+\item[ARCH] 非递增式变量，必须设为系统轮廓面向的平台。见 \ref{sec:profiles.desc} 节。
+\item[CONFIG_PROTECT, CONFIG_PROTECT_MASK] 各定义了一张以空格分隔的列表，用来控制配置文件保护。
+    详见 \ref{sec:config-protect} 节。
+\item[USE] 定义了此系统轮廓默认启用的应用标志列表，生效的优先级低于 \ref{sec:use-masking}
+    节所述的启用与屏蔽规则。折叠应用标志不能通过这种方法定义。
+\item[USE_EXPAND] 定义了一张递增式列表，每项是一个带前缀的折叠应用标志变量。在软件包安装时，
+    变量会根据 \ref{sec:use-iuse-handling} 节所述的方式展开成带前缀的折叠应用标志，
+    并添加到 ebuild 的 \texttt{IUSE_EFFECTIVE} 变量中。
+\item[USE_EXPAND_UNPREFIXED] 和 \texttt{USE_EXPAND} 类似，但不带前缀。列表中至少要有
+    \texttt{ARCH}（字面上的）。
+\item[USE_EXPAND_HIDDEN] \texttt{USE_EXPAND} 和 \texttt{USE_EXPAND_UNPREFIXED} 中的一部分（可以
+    为空）。软件包管理器可以把它当成一个提示，用来避免向最终用户显示不关注或没有帮助的信息。
+\item[USE_EXPAND_IMPLICIT, IUSE_IMPLICIT] 用于向 \texttt{IUSE_EFFECTIVE} 中添加隐式的值。
+    详见 \ref{sec:use-iuse-handling} 节。
+\item[ENV_UNSET] 一张以空格分隔，由软件包管理器应当删除的变量组成的列表。
+    详见 \ref{sec:ebuild-env-vars} 节。
+\end{description}
+
+此外，名称以 \texttt{USE_EXPAND_VALUES_} 开头的变量会按照~\ref{sec:use-iuse-handling}
+节描述的展开方式进行特殊处理。
+
+除此之外在 \texttt{构建配置}\ 中设置的任何变量都必须原样传递到 ebuild 环境中，
+并且不需要软件包管理器进行解释。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:

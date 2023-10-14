@@ -1,0 +1,236 @@
+\section{环境变量}
+\label{sec:ebuild-env-vars}
+
+软件包管理器需要定义下面表格中的环境变量。并非所有的变量在所有阶段函数中都有意义；
+在一个给定的阶段函数中那些没有意义的变量可以不设或设成任意值。除非另有说明，
+否则 ebuild 不得试图修改这些变量。
+
+由于它们的特殊含义，这些变量的值可能不会在所有阶段函数中保持一致。
+比如 \texttt{EBUILD_PHASE} 的值在每个阶段函数中都不一样，再比如 \texttt{ROOT}
+的值可能会在不同的 \texttt{pkg_*} 阶段函数之间发生变化。ebuild 需要重新计算
+派生自非一致变量的变量。
+
+如果没有特别说明，所有表示路径的变量都不以斜杠结尾，系统根目录就用空字符串表示。
+
+\begin{landscape}
+\reversemarginpar
+\addtolength{\marginparsep}{-25mm}
+\addtolength{\marginparsep}{-\textwidth} % FIXME
+\setlength{\LTleft}{25mm plus 1fil}
+\setlength{\LTright}{0pt plus 1fil}
+\begin{longtable}{!{\extracolsep{\fill}} l P{7.5em} l p{0.5\linewidth}}
+\caption{环境变量\label{tab:defined-vars}}\\
+\toprule
+\multicolumn{1}{c}{\textbf{变量}} &
+\multicolumn{1}{c}{\textbf{变量有意义的阶段}} &
+\multicolumn{1}{c}{\textbf{是否一致？}} &
+\multicolumn{1}{c}{\textbf{描述}} \\
+\midrule
+\endfirsthead
+\midrule
+\multicolumn{1}{c}{\textbf{变量}} &
+\multicolumn{1}{c}{\textbf{变量有意义的阶段}} &
+\multicolumn{1}{c}{\textbf{是否一致？}} &
+\multicolumn{1}{c}{\textbf{描述}} \\
+\midrule
+\endhead
+\midrule
+\endfoot
+\bottomrule
+\endlastfoot
+\texttt{P} &
+    所有，全局区域 &
+    是 &
+    软件包的名称和不带修订部分与纪元部分的版本。例如 \texttt{vim-7.0.174}。 \\
+\texttt{PF} &
+    所有，全局区域 &
+    是 &
+    软件包的名称和版本，例如 \texttt{vim-7.0.174-r1}。 \\
+\texttt{PN} &
+    所有，全局区域 &
+    是 &
+    软件包的名称，例如 \texttt{vim}。 \\
+\texttt{CATEGORY} &
+    所有，全局区域 &
+    是 &
+    软件包的类别，例如 \texttt{app-editors}。 \\
+\texttt{PV} &
+    所有，全局区域 &
+    是 &
+    软件包的版本，不带修订部分和纪元部分。例如 \texttt{7.0.174}。 \\
+\texttt{PE} &
+    所有，全局区域 &
+    是 &
+    软件包版本的纪元部分去掉下划线，如果不存在则为 \texttt{0}。 \\
+\texttt{PR} &
+    所有，全局区域 &
+    是 &
+    软件包版本的修订部分去掉连字符，如果不存在则为 \texttt{r0}。 \\
+\texttt{PVR} &
+    所有，全局区域 &
+    是 &
+    软件包的版本，例如 \texttt{7.0.174-r1}。 \\
+\texttt{A} &
+    \texttt{src_*}, \texttt{pkg_nofetch} &
+    是 &
+    所有用于软件包的源文件，以空格分隔，开头和结尾没有空格。此变量由 \texttt{SRC_URI}
+    推导得出，文件的顺序与 \texttt{SRC_URI} 中 URI 首次出现的顺序相同，
+    不包括任何因应用标志条件而不生效的 URI。 \\
+\texttt{FILESDIR} &
+    \texttt{src_*}，全局区域\footnote{在安装二进制包时没必要设置。ebuild 不得
+    在全局区域中访问此目录。} &
+    是 &
+    存放软件包 files 目录（见~\ref{sec:package-dirs} 节）中的文件的
+    绝对路径。可能存在也可能不存在；如果仓库没有为软件包提供非源码文件那么 ebuild 就要为
+    \texttt{FILESDIR} 指向一个不存在的目录的情况做好准备。 \\
+\texttt{DISTDIR} &
+    同上 &
+    是 &
+    存放变量 \texttt{A} 中的文件的绝对路径。 \\
+\texttt{WORKDIR} &
+    同上 &
+    是 &
+    ebuild 工作目录的绝对路径，这里应当包含所有用于构建的文件。此变量可以被 ebuild 修改，
+    如果被修改，则参与 \ref{sec:ebuild-env-state} 节所述的环境保存。 \\
+\texttt{ROOT} &
+    \texttt{pkg_*} &
+    否 &
+    软件包合并到的根目录的绝对路径。具有完整文件系统访问权限的阶段函数
+    不能动 \texttt{ROOT} 之外的任何文件。 \\
+\texttt{EROOT} &
+    \texttt{pkg_*} &
+    否 &
+    为了方便而定义的环境变量，值为变量 \texttt{ROOT} 和 \texttt{EPREFIX} 拼接成的路径。
+    另请参阅 \texttt{EPREFIX} 变量。 \\
+\texttt{T} &
+    所有 &
+    半一致\footnote{在单个连贯的安装或卸载阶段函数序列中保持一致，但在安装和卸载之间不一致。
+    在重装软件包时，此变量针对新装的包和被替换的包必须是不同的值。} &
+    给 ebuild 使用的临时目录的绝对路径。 \\
+\texttt{TMPDIR} &
+    所有 &
+    同上 &
+    临时目录的绝对路径，供 ebuild 调用的应用程序使用。
+    ebuild 不能直接使用；参阅上文的 \texttt{T}。 \\
+\texttt{HOME} &
+    所有 &
+    同上 &
+    一个合适的临时目录的绝对路径，供那些由 ebuild 调用，可能会读取或修改家目录的程序使用。 \\
+\texttt{EPREFIX} &
+    所有 &
+    是 &
+    安装前缀路径。 \\
+\texttt{D} &
+    \texttt{src_install} &
+    否 &
+    软件包将要被安装到的暂存目录的绝对路径。 \\
+\texttt{D}（续） &
+    \texttt{pkg_preinst}, \texttt{pkg_postinst} &
+    是 &
+    将要合并或刚刚合并的暂存目录的绝对路径。 \\
+\texttt{ED} &
+    \texttt{src_install}, \texttt{pkg_preinst}, \texttt{pkg_postinst} &
+    取决于\texttt{D} &
+    为了方便而定义的环境变量，值为变量 \texttt{D} 和 \texttt{EPREFIX} 拼接成的路径。另请参阅
+    \texttt{EPREFIX} 变量。 \\
+\texttt{USE} &
+    所有 &
+    是 &
+    在当前 ebuild 中启用的应用标志的列表，标志之间以空格分隔。详见~\ref{sec:use-iuse-handling} 节。 \\
+\texttt{EBUILD_PHASE} &
+    所有 &
+    否 &
+    根据软件包管理器当前执行的顶层 ebuild 函数取这些值之一：\texttt{config}，\texttt{setup}，\texttt{nofetch}，
+    \texttt{unpack}，\texttt{prepare}，\texttt{configure}，\texttt{compile}，\texttt{test}，\texttt{install}，\texttt{preinst}，
+    \texttt{postinst}，\texttt{prerm}，\texttt{postrm}，\texttt{info}，\texttt{pretend}。当 ebuild 用于
+    信息查询被拉入时可以不设或设为任意一个不是上述值之一的单词。 \\
+\texttt{EBUILD_PHASE_FUNC} &
+    所有 &
+    否 &
+    根据软件包管理器当前执行的顶层 ebuild 函数取这些值之一：
+    \texttt{pkg_config}，\texttt{pkg_setup}，\texttt{pkg_nofetch}，\texttt{src_unpack}，\texttt{src_prepare}，\texttt{src_configure}，
+    \texttt{src_compile}，\texttt{src_test}，\texttt{src_install}，\texttt{pkg_preinst}，\texttt{pkg_postinst}，\texttt{pkg_prerm}，
+    \texttt{pkg_postrm}，\texttt{pkg_info}，\texttt{pkg_pretend}。当 ebuild 用于信息查询
+    被拉入时可以不设或设为任意一个不是上述值之一的单词。 \\
+\texttt{BUILD_TYPE} &
+    全局区域，\texttt{pkg_setup}，\texttt{src_*} &
+    是 &
+    软件包的构建类型。可能的值有：\texttt{source}，表示从源码
+    编译安装软件包，\texttt{buildonly}，表示编译成二进制包而不安装，
+    以及 \texttt{binary}，表示正在安装的是二进制包。 \\
+\texttt{REPLACING_VERSIONS} &
+    \texttt{pkg_preinst}, \texttt{pkg_postinst} &
+    是 &
+    软件包在本次安装中将要被替换的版本
+    列表，以空格分隔，开头和结尾没有空格。详见~\ref{sec:replacing-versions} 节。 \\
+\texttt{REPLACED_BY_VERSION} &
+    \texttt{pkg_prerm}, \texttt{pkg_postrm} &
+    是 &
+    如果软件包是在替换过程中被卸载，此变量就是软件包新的版本，
+    其他情况下是空字符串。详见~\ref{sec:replacing-versions} 节。
+\end{longtable}
+\end{landscape}
+
+除非另有说明，当前使用的系统轮廓中，\texttt{构建配置}\ 文件设置的所有变量，都要导出到
+ebuild 环境的全局区域和所有阶段函数中，可以被 ebuild 修改并且参与环境保存。
+
+\texttt{CHOST}，\texttt{CBUILD} 和 \texttt{CTARGET} 这 3 个变量，如果在系统轮廓中
+没有设置，必须设为适当的平台（对“适当”的定义超出了此规范的范围）或不设。
+
+\texttt{PATH} 变量需要由软件包管理器初始化为一个“能用的”默认值。这个值具体是什么
+留给实现决定，但它应当包含等效的“sbin”和“bin”目录，以及任何软件包管理器特定的目录。
+
+\texttt{GZIP}，\texttt{BZIP}，\texttt{BZIP2}，\texttt{CDPATH}，\texttt{GREP_OPTIONS}，\texttt{GREP_COLOR}
+和 \texttt{GLOBIGNORE} 变量不得设置。除此之外，不得设置任何在 \texttt{ENV_UNSET} 变量中列出的变量。
+
+\subsection{USE 与 IUSE 的处理}
+\label{sec:use-iuse-handling}
+
+本节讨论以下 3 个变量的处理：
+\begin{description}
+\item[IUSE] 根据 ebuild 和 eclass 中定义的 \texttt{IUSE} 计算得到的变量。
+\item[IUSE_EFFECTIVE] ebuild 查询自身（比如应用标志查询函数，以及应用标志条件组）或被其他软件包
+    查询（比如检查应用标志依赖）时使用的变量。这纯粹是一个概念性的变量，不会实际导出到 ebuild 环境中。
+    它的值由计算得到的 \texttt{IUSE} 值、系统轮廓变量 \texttt{IUSE_IMPLICIT} 的值，以及所有折叠应用标志组成。
+\item[USE] 由软件包管理器计算并导出到 ebuild 环境中的变量。
+\end{description}
+
+其中折叠应用标志是根据相关的系统轮廓变量进行一些展开操作得到的应用标志，
+带前缀和不带前缀的折叠应用标志分别是：
+
+\begin{compactitem}
+\item \texttt{\$\{lower_v\}_\$\{x\}}。其中 \texttt{\$\{x\}} 是名称为
+    \texttt{USE_EXPAND_VALUES_\$\{v\}} 的系统轮廓变量中的元素，\texttt{\$\{v\}} 是
+    系统轮廓的 \texttt{USE_EXPAND} 和 \texttt{USE_EXPAND_IMPLICIT} 变量交集中的元素
+    并且 \texttt{\$\{lower_v\}} 是 \texttt{\$\{v\}} 的小写形式。
+\item 名称为 \texttt{USE_EXPAND_VALUES_\$\{v\}} 的系统轮廓变量中的元素。
+    其中 \texttt{\$\{v\}} 是系统轮廓的 \texttt{USE_EXPAND_UNPREFIXED} 和
+    \texttt{USE_EXPAND_IMPLICIT} 变量交集中的元素。
+\end{compactitem}
+
+\texttt{USE} 变量由软件包管理器赋值。对于 \texttt{IUSE_EFFECTIVE} 中的每一个值，如果要为当前
+ebuild 启用此标志，那么 \texttt{USE} 变量就应该包含它，而如果要禁用此标志，\texttt{USE} 变量就
+不应包含它。
+
+\subsection{REPLACING_VERSIONS 与 REPLACED_BY_VERSION}
+\label{sec:replacing-versions}
+
+\texttt{REPLACING_VERSIONS} 应在 \texttt{pkg_preinst} 和 \texttt{pkg_postinst}
+执行期间定义。同时，此变量也可以在 \texttt{pkg_pretend} 和 \texttt{pkg_setup} 执行期间定义。
+
+\texttt{REPLACING_VERSIONS} 是一个列表，而不是单个的可选值，以便于处理像安装
+\texttt{foo-2:2} 来替换 \texttt{foo-2:1} 和 \texttt{foo-3:2} 这样的病态情况。
+
+\texttt{REPLACED_BY_VERSION} 应在 \texttt{pkg_prerm} 和 \texttt{pkg_postrm}
+执行期间定义，并且最多只含有一个值。
+
+% vim: set filetype=tex fileencoding=utf8 et tw=100 spell spelllang=en :
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "pms"
+%%% LaTeX-indent-level: 4
+%%% LaTeX-item-indent: 0
+%%% TeX-brace-indent-level: 4
+%%% fill-column: 100
+%%% End:
