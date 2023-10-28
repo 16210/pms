@@ -31,10 +31,7 @@ ebuild 之间有四种依赖关系：
       \texttt{pkg_pretend}，\texttt{pkg_info}，\texttt{pkg_nofetch} &
           无（可以依赖 \texttt{最小安装}\ 分组里的软件包） \\
       \addlinespace
-      \texttt{pkg_setup} & 如果是在源码构建过程中执行，就和 \texttt{src_unpack}
-          一样，否则就和 \texttt{pkg_pretend} 一样。 \\
-      \addlinespace
-      \texttt{src_unpack}，\texttt{src_prepare}，\texttt{src_configure}，\texttt{src_compile}，\texttt{src_test}，
+      \texttt{pkg_setup}，\texttt{src_unpack}，\texttt{src_prepare}，\texttt{src_configure}，\texttt{src_compile}，\texttt{src_test}，
           \texttt{src_install} & \texttt{BDEPEND} \\
       \addlinespace
       \texttt{pkg_preinst}，\texttt{pkg_postinst} &
