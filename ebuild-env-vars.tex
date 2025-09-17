@@ -77,8 +77,7 @@
     推导得出，文件的顺序与 \texttt{SRC_URI} 中 URI 首次出现的顺序相同，
     不包括任何因应用标志条件而不生效的 URI。 \\
 \texttt{FILESDIR} &
-    \texttt{src_*}，全局区域\footnote{在安装二进制包时没必要设置。ebuild 不得
-    在全局区域中访问此目录。} &
+    \texttt{src_*}，全局区域\footnote{ebuild 不得在全局区域中访问此目录。} &
     是 &
     存放软件包 files 目录（见~\ref{sec:package-dirs} 节）中的文件的
     绝对路径。可能存在也可能不存在；如果仓库没有为软件包提供非源码文件那么 ebuild 就要为
@@ -152,12 +151,12 @@
     \texttt{src_compile}，\texttt{src_test}，\texttt{src_install}，\texttt{pkg_preinst}，\texttt{pkg_postinst}，\texttt{pkg_prerm}，
     \texttt{pkg_postrm}，\texttt{pkg_info}，\texttt{pkg_pretend}。当 ebuild 用于信息查询
     被拉入时可以不设或设为任意一个不是上述值之一的单词。 \\
-\texttt{BUILD_TYPE} &
-    全局区域，\texttt{pkg_setup}，\texttt{src_*} &
-    是 &
-    软件包的构建类型。可能的值有：\texttt{source}，表示从源码
-    编译安装软件包，\texttt{buildonly}，表示编译成二进制包而不安装，
-    以及 \texttt{binary}，表示正在安装的是二进制包。 \\
+\texttt{INSTALL_TYPE} &
+    全局区域，\texttt{pkg_*} &
+    否 &
+    软件包的安装类型。可能的值有：\texttt{source}，表示从源码
+    编译安装，\texttt{binary}，表示以二进制形式安装，
+    以及 \texttt{buildonly}，表示编译成二进制包而不安装。 \\
 \texttt{REPLACING_VERSIONS} &
     \texttt{pkg_preinst}, \texttt{pkg_postinst} &
     是 &
