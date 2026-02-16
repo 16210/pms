@@ -39,9 +39,9 @@ ebuild 可以定义以下变量：
     可以使用 \ref{sec:dependency-spec} 节所述的语法。
 \item[KEYWORDS] 详见下文 \ref{sec:keywords} 节。
 \item[IUSE] ebuild 用到的非折叠应用标志。每个应用标志可以带一个加号前缀，表示 ebuild 的作者建议启用此标志，
-    不带加号前缀则表示建议不启用或没有建议。
+    不带加号前缀表示建议不启用或没有建议。
 
-    除了 ebuild 之外，任何使用应用标志的 eclass 也必须设置 \texttt{IUSE}，
+    除了 ebuild 之外，使用了应用标志的 eclass 也必须设置 \texttt{IUSE}，
     只列出自己用到的标志。软件包管理器负责合并这些值。
 \item[REQUIRED_USE] 应用标志的状态约束列表。详见下文 \ref{sec:required-use} 节。
 \item[PROPERTIES] 该软件包的任意数量个属性标记。可以使用 \ref{sec:dependency-spec} 节所述的语法，
@@ -68,7 +68,7 @@ ebuild 可以定义以下变量：
 下载受限的软件包可以用一个简单的文件名代替完整的 URI。
 
 \texttt{SRC_URI} 中还支持可选的箭头语法：URI 后面跟一个空格再跟一个 \texttt{->}
-再跟一个空格，然后是一个简单的文件名。如果使用了箭头，
+再跟一个空格，然后是一个文件名。如果使用了箭头，
 那么保存到 \texttt{\$\{DISTDIR\}} 中的文件名应改为箭头右侧的文件名。
 
 \subsection{KEYWORDS}

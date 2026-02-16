@@ -78,12 +78,6 @@ ebuild 之间有四种依赖关系：
     \texttt{LICENSE}、\texttt{REQUIRED_USE}、\texttt{PROPERTIES}、\texttt{RESTRICT} 中。
 \end{compactitem}
 
-\subsection{全选说明符}
-
-在全选组中，所有的说明符都生效（在 \texttt{SRC_URI}，\texttt{LICENSE}，\texttt{PROPERTIES}，
-\texttt{RESTRICT} 中）或必须匹配（在 \texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND}，
-\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。
-
 \subsection{应用标志条件说明符}
 
 在应用标志条件组中，如果相关的应用标志被启用（若有感叹号前缀则为禁用），则所有的说明符都
@@ -91,20 +85,36 @@ ebuild 之间有四种依赖关系：
 \texttt{RESTRICT} 中）或必须匹配（在 \texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND}，
 \texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。否则忽略这个组。
 
+如果一个应用标志条件组所有的成员都忽略，那么这个应用标志条件组应当忽略。
+
 在应用标志条件组中出现 \texttt{IUSE_EFFECTIVE} 中不存在的应用标志会导致软件包被视为已屏蔽。
+
+\subsection{全选说明符}
+
+在全选组中，所有的说明符都生效（在 \texttt{SRC_URI}，\texttt{LICENSE}，\texttt{PROPERTIES}，
+\texttt{RESTRICT} 中）或必须匹配（在 \texttt{BDEPEND}，\texttt{RDEPEND}，\texttt{PDEPEND}，
+\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。
+
+如果一个全选组所有的成员都忽略，那么这个全选组应当忽略。
 
 \subsection{任选说明符}
 
 在任选组中，至少有一个说明符生效（在 \texttt{LICENSE} 中）或必须匹配（在 \texttt{BDEPEND}，
 \texttt{RDEPEND}，\texttt{PDEPEND}，\texttt{IDEPEND}，\texttt{REQUIRED_USE} 中）。
 
+如果一个任选组所有的成员都忽略，那么这个任选组应当忽略。
+
 \subsection{单选说明符}
 
 在单选组中必须有且仅有一个说明符匹配。
 
+如果一个单选组所有的成员都忽略，那么这个单选组应当忽略。
+
 \subsection{至多单选说明符}
 
 在至多单选组中，最多只能有一个说明符匹配。
+
+如果一个至多单选组所有的成员都忽略，那么这个至多单选组应当忽略。
 
 \section{软件包依赖说明符}
 \label{sec:package-dependency-spec}

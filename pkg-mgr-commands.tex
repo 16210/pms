@@ -169,7 +169,8 @@ bash 的 \texttt{echo -e} 命令的方式进行解释，尤其是 \texttt{\textb
 
     \item \texttt{-{}-build} 必须是 \texttt{CBUILD} 环境变量的值。该选项
         仅在 \texttt{CBUILD} 非空的情况下才会传给 configure 脚本。
-    \item \texttt{-{}-host} 必须是 \texttt{CHOST} 环境变量的值。
+    \item \texttt{-{}-host} 必须是 \texttt{CHOST} 环境变量的值。该选项
+        仅在 \texttt{CHOST} 非空的情况下才会传给 configure 脚本。
     \item \texttt{-{}-target} 必须是 \texttt{CTARGET} 环境变量的值。该选项
         仅在 \texttt{CTARGET} 非空的情况下才会传给 configure 脚本。
     \item \texttt{-{}-disable-dependency-tracking} 该选项仅在 \texttt{configure -{}-help}
@@ -568,10 +569,17 @@ dosym_relative_path() {
 \end{algorithmic}
 \end{algorithm}
 
+\item[inherit] 详见~\ref{sec:inherit} 节。
+
+\item[default]
+    调用当前阶段函数的 \texttt{default_} 函数
+    （详见~\ref{sec:default-phase-funcs} 节）。如果当前阶段函数
+    没有 \texttt{default_} 函数则不得调用此命令。\texttt{default} 必须内部实现。
+
 \item[get_libdir] 打印根据算法~\ref{alg:get-libdir} 得到的 libdir。
     必须内部实现为 shell 函数。
 
-\begin{algorithm}[!h]
+\begin{algorithm}[ht]
 \caption{\texttt{get_libdir} 逻辑} \label{alg:get-libdir}
 \begin{algorithmic}[1]
 \STATE 令 libdir=lib
@@ -584,13 +592,6 @@ dosym_relative_path() {
 \STATE 打印 libdir 的值
 \end{algorithmic}
 \end{algorithm}
-
-\item[inherit] 详见~\ref{sec:inherit} 节。
-
-\item[default]
-    调用当前阶段函数的 \texttt{default_} 函数
-    （详见~\ref{sec:default-phase-funcs} 节）。如果当前阶段函数
-    没有 \texttt{default_} 函数则不得调用此命令。\texttt{default} 必须内部实现。
 
 \end{description}
 
